@@ -1,0 +1,11 @@
+# Flash layout for the 2026 hacker badge (HAL guide §0).
+#   app     : 0x2A0000 @ 0x10000
+#   storage : 0x140000  immediately after
+# Ends at 0x3F0000 of 0x400000 (4 MB). Single app partition — no OTA, because
+# the badge is flashed over USB and OTA would halve the space available.
+#
+# Name,     Type, SubType, Offset,   Size,     Flags
+nvs,        data, nvs,     0x9000,   0x6000,
+phy_init,   data, phy,     0xF000,   0x1000,
+factory,    app,  factory, 0x10000,  0x2A0000,
+storage,    data, spiffs,  0x2B0000, 0x140000,
