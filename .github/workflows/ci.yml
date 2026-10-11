@@ -25,7 +25,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: pip
 
       - name: Install PlatformIO
         run: pip install --upgrade platformio
@@ -45,7 +44,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: pip
 
       # The espressif32 platform and its RISC-V toolchain are ~hundreds of MB.
       # Caching turns a 4-minute job into well under one.
