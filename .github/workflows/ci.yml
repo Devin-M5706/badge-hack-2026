@@ -1,0 +1,97 @@
+name: CI
+
+# Why this exists: in a timed hardware hack, the worst discovery is that `main`
+# stopped compiling three commits ago and you only found out when you tried to
+# flash. Every push proves the firmware still builds and the logic tests pass.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  # A new push supersedes an in-flight run on the same ref.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Logic tests (host)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install PlatformIO
+        run: pip install --upgrade platformio
+
+      # Runs on the GitHub runner, not on a board. These cover the decode and
+      # debounce logic — the parts where a silent mistake costs bench time.
+      - name: Run tests
+        working-directory: firmware
+        run: pio test -e native
+
+  build:
+    name: Build firmware (esp32-c3)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      # The espressif32 platform and its RISC-V toolchain are ~hundreds of MB.
+      # Caching turns a 4-minute job into well under one.
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio/.cache
+            ~/.platformio/packages
+            ~/.platformio/platforms
+          key: pio-${{ runner.os }}-${{ hashFiles('firmware/platformio.ini') }}
+          restore-keys: pio-${{ runner.os }}-
+
+      - name: Install PlatformIO
+        run: pip install --upgrade platformio
+
+      - name: Build
+        working-directory: firmware
+        run: pio run -e badge
+
+      # Flash is only 4 MB and the app partition is fixed at 0x2A0000, so it is
+      # worth seeing the size trend in the log before the linker starts failing.
+      - name: Report firmware size
+        working-directory: firmware
+        run: pio run -e badge -t size
+
+      - name: Upload firmware binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware-${{ github.sha }}
+          path: firmware/.pio/build/badge/firmware.bin
+          if-no-files-found: error
+          retention-days: 14
+
+  format:
+    name: clang-format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Formatting is reported but never blocks a merge. At hour 6 of a hack,
+      # a red X over brace placement is noise that trains you to ignore CI.
+      - name: Check formatting
+        continue-on-error: true
+        run: |
+          clang-format --version
+          find firmware/src firmware/lib firmware/include firmware/test \
+            -type f \( -name '*.cpp' -o -name '*.h' -o -name '*.ino' \) \
+            -print0 | xargs -0 clang-format --style=file --dry-run -Werror
