@@ -161,12 +161,35 @@ a desk the whole envelope is 5–15 ms wide. Hence 400 Hz, the part's maximum.
 > *Machine Learning with Applications* 2024, 16, 100547.
 > <https://doi.org/10.1016/j.mlwa.2024.100547> (open access)
 
-**One thing this work does not claim.** None of the above validates a
-threshold-and-debounce detector as *better* than a learned one. The published
-vibration results use trained classifiers, and with labelled data this project
-probably should too. Thresholds were chosen here because there is no labelled
-dataset of knocks on this badge and no time to build one — a constraint, stated
-as a constraint.
+**Thresholds are not a cop-out, and there is a benchmark that says so.** The
+closest published analogue to knock detection is not road surfaces at all — it
+is **impact detection in fall-detection research**, where the signal of interest
+is the same thing: a brief, high-amplitude transient against a noisy
+body-mounted baseline. Sucerquia et al.'s SisFall dataset (19 activities of
+daily living and 15 fall types across 38 participants, recorded with a
+purpose-built two-accelerometer device) reports that **"a simple to implement
+threshold based classification" reaches up to 96% accuracy** on fall detection.
+That is the method this firmware uses, validated on a 520-citation open
+benchmark.
+
+Their second finding is the more sobering one, and it is why the bars in this
+README are stated as demo-grade: validation on elderly participants
+*"significantly reduced the fall detection performance of the tested
+features."* A threshold tuned on one population, posture or mounting does not
+transfer, which is exactly the risk a detector tuned by one person on one badge
+in one afternoon carries.
+
+**One thing this work does not claim.** None of the above shows
+threshold-and-debounce is *better* than a learned detector; Wu et al.'s trained
+Random Forest is the stronger result on vibration data. With a labelled dataset
+of knocks on this badge, this project should learn its thresholds rather than
+hand-tune them. There isn't one, and there was no time to build one — a
+constraint, stated as a constraint, and the capture path is in place to remove
+it later.
+
+> Sucerquia, A.; López, J. D.; Vargas-Bonilla, J. F. "SisFall: A Fall and
+> Movement Dataset." *Sensors* 2017, 17(1), 198.
+> <https://doi.org/10.3390/s17010198> (open access)
 
 ## Why MongoDB is load-bearing here
 
