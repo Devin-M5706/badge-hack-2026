@@ -540,13 +540,29 @@ def main() -> int:
 
     if fall:
         hit = sum(1 for r in fall if r.events > 0)
+        rate = 100.0 * hit / len(fall)
         print("\n" + "=" * 68)
-        print("IMPULSE RESPONSE ON REAL IMPACTS  (falls -- NOT knocks)")
+        print("RESPONSE TO REAL IMPACTS  (falls -- NOT knocks)")
         print("=" * 68)
         print(f"  {hit}/{len(fall)} fall recordings produced at least one event "
-              f"({100.0*hit/len(fall):.1f}%)")
-        print("  Reads as: the impulse path responds to real-world impacts, not")
-        print("  only to synthetic test waveforms. It is not knock recognition.")
+              f"({rate:.1f}%)")
+        # Say what the number means rather than what we hoped it would mean. A
+        # fall is a violent, long, multi-lobe event; a knock is one short lobe.
+        # The ringdown test exists to separate exactly those, so a LOW number
+        # here is the discriminator generalising, not the detector being dead --
+        # provided the detector demonstrably fires on real knocks on hardware.
+        # That second half cannot come from this dataset: nobody tapped
+        # anything in SisFall.
+        if rate < 5.0:
+            print("  Reads as: the ringdown test rejects violent multi-lobe impacts,")
+            print("  which is what it was built to do. This is only good news in")
+            print("  combination with a bench run showing real knocks DO fire --")
+            print("  this dataset contains no taps and cannot show acceptance.")
+        elif rate > 60.0:
+            print("  Reads as: the impulse path fires on violent impacts too. For a")
+            print("  knock detector that is a false-positive source, not a feature.")
+        else:
+            print("  Mixed. Inspect the ringdown counters before drawing a conclusion.")
 
     worst = sorted(adl, key=lambda r: r.events, reverse=True)[:8]
     if worst and worst[0].events:

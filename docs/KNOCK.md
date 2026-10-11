@@ -75,7 +75,7 @@ see walking), and the decision variable is the L1 norm — no `sqrt` in the hot 
 
 | Test | What it rejects |
 |---|---|
-| **Amplitude** ≥ 1500 mg | Walking. Footfall at the chest is 125–300 counts against a 375 threshold — amplitude, not isolation, is what kills gait |
+| **Amplitude** ≥ 1500 mg | Narrows the field. It does *not* reject walking on its own — see the correction under Replay below |
 | **Isolation** — leaky quiet credit | Pre-existing motion. Made *leaky* rather than a hard reset, so a blip 150 ms before a real knock costs 20 ms of credit, not the gesture |
 | **Ringdown** — ≤10 of 30 samples hot, then 5 consecutive quiet | A neighbour slamming the desk. This is the one that matters: a knock dumps energy into damped tissue and dies in 10–40 ms, while a desk is a low-damping plate that **rings for 50–200 ms**. The separator is not "does it decay" — both do — it is *how many times it comes back up* |
 | **Refractory** — 250 ms, plus a separate 100 ms post-*reject* lockout | Double-firing. The reject lockout is the subtle one: without it, a ringdown poking above threshold five times gets five independent chances to pass by luck |
@@ -190,6 +190,55 @@ it later.
 > Sucerquia, A.; López, J. D.; Vargas-Bonilla, J. F. "SisFall: A Fall and
 > Movement Dataset." *Sensors* 2017, 17(1), 198.
 > <https://doi.org/10.3390/s17010198> (open access)
+
+## Replay against 4,505 recordings of real human motion
+
+`tools/replay_sisfall.py` replays the SisFall dataset through the detector's own
+integer logic. Results, full run:
+
+| | Recordings | Duration | Events emitted |
+|---|---|---|---|
+| Activities of daily living | 2,707 | **872 min (14.5 h)** | **0** |
+| — locomotion subset (walk, jog, stairs) | 458 | 384 min | 0 |
+| — impulsive ADLs (stumble, jump, collapse into a chair) | 550 | 110 min | 0 |
+| Real falls | 1,798 | — | **0** |
+
+Rejections across the activity set: **54,190** by isolation, 320 by agitation,
+57 by ringdown.
+
+**Two things this forced me to correct.**
+
+*First, the amplitude claim was backwards.* This README previously said amplitude
+rejects gait and isolation structurally cannot. Measured, the 1500 mg threshold is
+crossed **54,190 times** in 14.5 hours of ordinary movement — amplitude narrows the
+field, and **isolation is what actually rejects gait.** Some of that is mounting:
+SisFall is waist-mounted, where gait acceleration far exceeds a badge on a lanyard.
+The claim still should not have been stated as settled.
+
+*Second, "zero false positives" means nothing on its own.* A detector that never
+fires scores exactly the same. The falls row is what makes the activity row
+meaningful — and it needs its own explanation: with **isolation and agitation both
+disabled**, 120 fall recordings armed **460** candidates and the ringdown stage
+rejected **all 460**. Their peaks reach 19,830 mg, over 13× the threshold, so
+amplitude was never the limiter. That is the ringdown discriminator generalising:
+a fall is a violent multi-lobe event, a knock is one short lobe.
+
+**And the half this dataset cannot supply.** Nobody tapped anything in SisFall, so
+it can only ever show what the detector *rejects*. Acceptance is a hardware claim,
+and it is confirmed on the badge: deliberate knocks fire, and a harsh strike
+separates from a light one. The two halves together are the result; neither alone
+is one.
+
+Caveats, stated rather than buried: waist mounting is not lanyard mounting; the
+200 Hz source is upsampled to 400 Hz so the detector's per-sample timings mean what
+they mean on hardware, which cannot add spectral content above the original Nyquist
+limit and makes ringdown read *softer* here than on the badge.
+
+The harness is a Python mirror of `firmware/lib/BumpLogic`, because the development
+machine has no host C++ compiler. The mirror is not trusted on faith: it emits the
+exact sample stream and decisions it produced as a fixture, and a native test
+replays that fixture through the real `bump::Detector` in CI, failing the build on a
+single differing event.
 
 ## Why MongoDB is load-bearing here
 
