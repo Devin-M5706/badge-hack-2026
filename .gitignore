@@ -30,3 +30,8 @@ node_modules/
 # Python bytecode from tools/
 __pycache__/
 *.pyc
+
+# badge-accel: Arduino build output and local firmware backups
+badge-accel/**/build/
+*.merged.bin
+event-firmware-backup.bin
