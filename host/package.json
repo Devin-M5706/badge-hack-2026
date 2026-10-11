@@ -10,11 +10,15 @@
   "scripts": {
     "init": "node --env-file-if-exists=.env init-db.mjs",
     "bridge": "node --env-file-if-exists=.env bridge.mjs",
-    "seed": "node --env-file-if-exists=.env seed.mjs"
+    "seed": "node --env-file-if-exists=.env seed.mjs",
+    "verify": "node verify-local.mjs"
   },
   "dependencies": {
+    "@serialport/parser-readline": "^13.0.0",
     "mongodb": "^7.7.0",
-    "serialport": "^13.0.0",
-    "@serialport/parser-readline": "^13.0.0"
+    "serialport": "^13.0.0"
+  },
+  "devDependencies": {
+    "mongodb-memory-server": "^11.3.0"
   }
 }
