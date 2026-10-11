@@ -26,3 +26,7 @@ serial-*.txt
 # Host-side bridge (host/)
 node_modules/
 .env
+
+# Python bytecode from tools/
+__pycache__/
+*.pyc
