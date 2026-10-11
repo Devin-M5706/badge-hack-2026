@@ -1,0 +1,20 @@
+{
+  "name": "badge-bump-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "USB-serial bridge: HTN badge knock events -> MongoDB Atlas time series + live page",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "init": "node --env-file-if-exists=.env init-db.mjs",
+    "bridge": "node --env-file-if-exists=.env bridge.mjs",
+    "seed": "node --env-file-if-exists=.env seed.mjs"
+  },
+  "dependencies": {
+    "mongodb": "^7.7.0",
+    "serialport": "^13.0.0",
+    "@serialport/parser-readline": "^13.0.0"
+  }
+}

@@ -15,6 +15,7 @@
 namespace badge {
 
 class Accel;
+class BumpDetector;
 class Buttons;
 class Display;
 class Leds;
@@ -23,7 +24,8 @@ class Console {
  public:
   // Any of these may be null — commands that need a missing subsystem just
   // report that it is unavailable, so a half-built badge is still debuggable.
-  void begin(Buttons* buttons, Leds* leds, Accel* accel, Display* display);
+  void begin(Buttons* buttons, Leds* leds, Accel* accel, Display* display,
+             BumpDetector* bump = nullptr);
 
   // Non-blocking; call every loop iteration.
   void poll();
@@ -33,14 +35,21 @@ class Console {
   void printHelp();
   void printState();
 
+  // Knock detector: the health line and the live threshold tuning. Separate
+  // from printState() because you read it once per tuning iteration and it is
+  // the only evidence that the sampler is keeping up.
+  void printBump();
+  void bumpCommand(char** cursor);
+
   // §9: keep each USB write under 256 bytes (USB-Serial-JTAG RX ring). Longer
   // output is split across several writes rather than one big one.
   void writeChunked(const char* text);
 
-  Buttons* buttons_ = nullptr;
-  Leds* leds_       = nullptr;
-  Accel* accel_     = nullptr;
-  Display* display_ = nullptr;
+  Buttons* buttons_      = nullptr;
+  Leds* leds_            = nullptr;
+  Accel* accel_          = nullptr;
+  Display* display_      = nullptr;
+  BumpDetector* bump_    = nullptr;
 
   char buf_[80] = {0};
   size_t len_   = 0;

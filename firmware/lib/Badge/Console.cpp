@@ -1,10 +1,12 @@
 #include "Console.h"
 
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "Accel.h"
+#include "BumpDetector.h"
 #include "Buttons.h"
 #include "Display.h"
 #include "Leds.h"
@@ -44,11 +46,12 @@ long tokenToLong(const char* token, long fallback) {
 }  // namespace
 
 void Console::begin(Buttons* buttons, Leds* leds, Accel* accel,
-                    Display* display) {
+                    Display* display, BumpDetector* bump) {
   buttons_ = buttons;
   leds_    = leds;
   accel_   = accel;
   display_ = display;
+  bump_    = bump;
   len_     = 0;
 
   Serial.println();
@@ -103,6 +106,177 @@ void Console::printHelp() {
       "  led <i> <r> <g> <b>  set one LED (i 0..5, values 0..255)\r\n"
       "  leds off        all LEDs off\r\n"
       "  rot <0..3>      display rotation, if the image looks mirrored\r\n");
+  writeChunked(
+      "knock detector:\r\n"
+      "  bump            health line + current tuning (read this every pass)\r\n"
+      "  bump flip       1g check: one axis ~+/-1000 mg at rest\r\n"
+      "  bump thr <mg>   peak threshold        bump qgate <mg>  quiet gate\r\n"
+      "  bump quiet <ms> quiet credit needed   bump refr <ms>   refractory\r\n"
+      "  bump win <ms>   ringdown window       bump hot <n>     max hot samples\r\n"
+      "  bump pen <n>    blip penalty          bump agit <0|1>  agitation veto\r\n"
+      "  bump agit <n>   agitation level (n>1) bump save|load|defaults|zero\r\n");
+}
+
+// One line, under the 256-byte USB write limit, printed once per tuning pass.
+//
+// Read `hz` and `gap` first. hz well under 400 or a gap in the tens of
+// thousands of microseconds means the sampler is being starved by the display
+// or the LEDs, and no amount of threshold tuning will fix that. `empty` near
+// zero is the subtle one: it means we are polling slower than the sensor
+// produces data and silently losing samples.
+void Console::printBump() {
+  if (bump_ == nullptr) {
+    Serial.println(F("! bump detector unavailable"));
+    return;
+  }
+  const bump::Stats& s      = bump_->logicStats();
+  const bump::Config& c     = bump_->config();
+  const AccelReading r      = bump_->lastReading();
+
+  char out[256];
+  snprintf(out, sizeof(out),
+           "hz=%lu gap=%lu late=%lu empty=%lu | ev=%lu drop=%lu rq=%lu ra=%lu "
+           "rd=%lu | mag=%ld pk=%ld qr=%ld ag=%ld | xyz %d %d %d\r\n",
+           static_cast<unsigned long>(bump_->sampleRateHz()),
+           static_cast<unsigned long>(bump_->worstGapUs()),
+           static_cast<unsigned long>(bump_->lateCount()),
+           static_cast<unsigned long>(bump_->emptyPolls()),
+           static_cast<unsigned long>(s.events),
+           static_cast<unsigned long>(bump_->drops()),
+           static_cast<unsigned long>(s.rej_quiet),
+           static_cast<unsigned long>(s.rej_agit),
+           static_cast<unsigned long>(s.rej_decay),
+           static_cast<long>(s.mag_now), static_cast<long>(s.mag_max),
+           static_cast<long>(s.qrun), static_cast<long>(s.agit), r.x_mg,
+           r.y_mg, r.z_mg);
+  writeChunked(out);
+
+  // Print every tunable, including the three that are not settable from here
+  // (dshift, dq_need, rlock). A knob you cannot see is a knob you will not
+  // think of when the numbers look wrong.
+  snprintf(out, sizeof(out),
+           "thr=%ld qgate=%ld quiet=%ldms refr=%ldms win=%ldms hot=%ld/%ld "
+           "pen=%ld agit=%ld lvl=%ld | dshift=%ld dq=%ld rlock=%ldms\r\n",
+           static_cast<long>(c.thr_mg), static_cast<long>(c.qgate_mg),
+           static_cast<long>(c.qneed * bump::kMsPerIter),
+           static_cast<long>(c.refr * bump::kMsPerIter),
+           static_cast<long>(c.dwin * bump::kMsPerIter),
+           static_cast<long>(c.dhot_max), static_cast<long>(c.dwin),
+           static_cast<long>(c.qpen), static_cast<long>(c.agit_en),
+           static_cast<long>(c.agit_max), static_cast<long>(c.dshift),
+           static_cast<long>(c.dq_need),
+           static_cast<long>(c.rlock * bump::kMsPerIter));
+  writeChunked(out);
+}
+
+void Console::bumpCommand(char** cursor) {
+  if (bump_ == nullptr) {
+    Serial.println(F("! bump detector unavailable"));
+    return;
+  }
+  const char* sub = nextToken(cursor);
+  if (sub == nullptr) {
+    printBump();
+    return;
+  }
+
+  bump::Config& c = bump_->config();
+
+  if (strcmp(sub, "flip") == 0) {
+    const AccelReading r = bump_->lastReading();
+    char out[160];
+    snprintf(out, sizeof(out),
+             "flip x=%d y=%d z=%d mg | expect ONE axis near +/-1000 at rest; "
+             "all three near zero means no data, ~250 means HR/FS did not "
+             "take\r\n",
+             r.x_mg, r.y_mg, r.z_mg);
+    writeChunked(out);
+    return;
+  }
+  if (strcmp(sub, "save") == 0) {
+    Serial.println(bump_->saveConfig() ? F("saved") : F("! save failed"));
+    return;
+  }
+  if (strcmp(sub, "load") == 0) {
+    Serial.println(bump_->loadConfig() ? F("loaded") : F("! none stored, defaults"));
+    printBump();
+    return;
+  }
+  if (strcmp(sub, "defaults") == 0) {
+    bump_->resetConfig();
+    Serial.println(F("defaults (not saved -- 'bump save' to persist)"));
+    return;
+  }
+  if (strcmp(sub, "zero") == 0) {
+    bump_->clearStats();
+    Serial.println(F("stats cleared"));
+    return;
+  }
+
+  // Everything below takes a value. Durations are entered in milliseconds and
+  // stored as iterations, because the logic counts samples, not time.
+  const char* valueToken = nextToken(cursor);
+  if (valueToken == nullptr) {
+    Serial.println(F("! that setting needs a value"));
+    return;
+  }
+  const long v = tokenToLong(valueToken, LONG_MIN);
+  if (v == LONG_MIN) {
+    Serial.println(F("! value must be a number"));
+    return;
+  }
+
+  // Every out-of-range value here fails SILENTLY and looks exactly like a dead
+  // accelerometer, which is the most expensive thing that can happen during a
+  // 45-minute tuning pass. Two in particular:
+  //   `win 1`   -> dwin 0, so --dn goes negative, the window decides on the
+  //                very next sample, qcons is below dq_need, and EVERY knock
+  //                is rejected as a ringdown.
+  //   `quiet 0` -> the isolation veto is simply off, and nothing says so.
+  // So clamp, and say what was clamped.
+  auto atLeast = [](long value, long low, const char* what) -> int32_t {
+    if (value < low) {
+      Serial.printf("! %s raised to %ld (below that it silently stops working)\r\n",
+                    what, low);
+      return static_cast<int32_t>(low);
+    }
+    return static_cast<int32_t>(value);
+  };
+  const long minWinMs = static_cast<long>(c.dq_need * bump::kMsPerIter);
+
+  if (strcmp(sub, "thr") == 0) {
+    c.thr_mg = atLeast(v, 50, "thr");
+  } else if (strcmp(sub, "qgate") == 0) {
+    c.qgate_mg = atLeast(v, 1, "qgate");
+  } else if (strcmp(sub, "quiet") == 0) {
+    c.qneed = static_cast<int32_t>(atLeast(v, 0, "quiet") / bump::kMsPerIter);
+    if (c.qneed == 0) Serial.println(F("! isolation veto is now OFF"));
+  } else if (strcmp(sub, "refr") == 0) {
+    c.refr = atLeast(v, bump::kMsPerIter, "refr") / bump::kMsPerIter;
+  } else if (strcmp(sub, "win") == 0) {
+    c.dwin = atLeast(v, minWinMs, "win") / bump::kMsPerIter;
+  } else if (strcmp(sub, "hot") == 0) {
+    // Above dwin the ringdown test can never reject anything; below 0 it can
+    // never accept. Either way it stops being a discriminator.
+    c.dhot_max = atLeast(v, 0, "hot");
+    if (c.dhot_max > c.dwin) {
+      c.dhot_max = c.dwin;
+      Serial.printf("! hot capped at the window length (%ld)\r\n", static_cast<long>(c.dwin));
+    }
+  } else if (strcmp(sub, "pen") == 0) {
+    c.qpen = atLeast(v, 1, "pen");
+  } else if (strcmp(sub, "agit") == 0) {
+    // 0 and 1 switch the veto; anything larger sets its level, which is an
+    // [S] starting point the acceptance protocol expects you to tune. Without
+    // this it was only changeable by reflashing.
+    if (v <= 1) c.agit_en = (v != 0) ? 1 : 0;
+    else        c.agit_max = static_cast<int32_t>(v);
+  } else {
+    Serial.print(F("! unknown bump setting: "));
+    Serial.println(sub);
+    return;
+  }
+  printBump();
 }
 
 void Console::printState() {
@@ -162,6 +336,11 @@ void Console::dispatch(char* line) {
 
   if (strcmp(cmd, "state") == 0) {
     printState();
+    return;
+  }
+
+  if (strcmp(cmd, "bump") == 0) {
+    bumpCommand(&cursor);
     return;
   }
 

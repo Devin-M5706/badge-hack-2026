@@ -15,6 +15,7 @@
 #include <stdio.h>
 
 #include "Accel.h"
+#include "BumpDetector.h"
 #include "Buttons.h"
 #include "Console.h"
 #include "Display.h"
@@ -27,6 +28,7 @@ badge::Display display;
 badge::Buttons buttons;
 badge::Leds leds;
 badge::Accel accel;
+badge::BumpDetector detector;
 badge::Console console;
 
 // Screen rows, named so the layout is editable without counting.
@@ -35,10 +37,17 @@ constexpr uint8_t kRowAccelValues = 1;
 constexpr uint8_t kRowButtons     = 2;
 constexpr uint8_t kRowLastEdge    = 3;
 constexpr uint8_t kRowUptime      = 4;
+constexpr uint8_t kRowKnocks      = 5;
 constexpr uint8_t kRowHint        = 6;
 
 uint32_t lastAccelMs = 0;
 uint32_t lastClockMs = 0;
+
+// Knock feedback runs on a deadline instead of a delay(): §0 says long compute
+// blocks the UI loop, and a blocking flash would also stall the console. While
+// a flash is up the LED chase is suspended so the two do not fight.
+uint32_t flashUntilMs = 0;
+uint32_t knockCount   = 0;
 
 void renderPressedButtons() {
   char names[40];
@@ -92,10 +101,22 @@ void setup() {
     Serial.println(F("note: Aux1 is held at boot (maintained switch)"));
   }
 
+  // The knock detector takes over the accelerometer completely: it samples at
+  // 400 Hz from its own task, so nothing else may touch the bus afterwards.
+  // Everything that wants a reading asks detector.lastReading() instead.
+  const bool bumpOk = accelOk && detector.begin(&accel);
+  display.linef(kRowKnocks, bumpOk ? ST77XX_GREEN : ST77XX_RED, "knocks: %s",
+                bumpOk ? "0" : "detector off");
+  Serial.printf("bump detector: %s\r\n", bumpOk ? "running at 400 Hz" : "off");
+  if (bumpOk) {
+    Serial.println(F("note: run 'bump flip' -- one axis must read ~+/-1000 mg"));
+    Serial.println(F("      at rest. ~250 means the HR/full-scale write failed."));
+  }
+
   display.line(kRowHint, "serial: type help", ST77XX_CYAN);
   renderPressedButtons();
 
-  console.begin(&buttons, &leds, &accel, &display);
+  console.begin(&buttons, &leds, &accel, &display, &detector);
 }
 
 void loop() {
@@ -123,13 +144,51 @@ void loop() {
     }
   }
 
-  // Dim, so it cannot contribute to the §6 brown-out. Also doubles as the
-  // liveness tell: if the chase freezes, loop() is blocked.
-  leds.chase(now);
+  // Knock events. The detector already enqueued these from its own task, so
+  // this is pure presentation — the feedback latency a user feels is the queue
+  // drain, not the detection.
+  badge::BumpEvent ev;
+  while (detector.poll(&ev)) {
+    ++knockCount;
+    // One NDJSON object per line, starting at column 0 with '{'. That single
+    // character is the whole protocol the host-side bridge filters on; every
+    // other line this firmware prints is human-facing.
+    Serial.printf("{\"seq\":%lu,\"t_ms\":%lu,\"mg\":%ld,\"axis\":%u,\"flags\":%u}\r\n",
+                  static_cast<unsigned long>(ev.seq),
+                  static_cast<unsigned long>(ev.t_ms),
+                  static_cast<long>(ev.peak_mg), ev.axis, ev.flags);
+
+    display.linef(kRowKnocks, ST77XX_GREEN, "knocks: %lu  %ld mg",
+                  static_cast<unsigned long>(knockCount),
+                  static_cast<long>(ev.peak_mg));
+
+    // Dim on purpose (§6 brown-out budget), and colour-coded by axis so the
+    // demo shows which face was struck.
+    const uint8_t r = ev.axis == bump::kAxisX ? 40 : 0;
+    const uint8_t g = ev.axis == bump::kAxisY ? 40 : 0;
+    const uint8_t b = ev.axis == bump::kAxisZ ? 40 : 0;
+    leds.setAll(r, g, b);
+    leds.show();
+    flashUntilMs = now + 90;
+  }
+
+  if (flashUntilMs != 0) {
+    if (now >= flashUntilMs) {
+      flashUntilMs = 0;
+      leds.clear();
+      leds.show();
+    }
+  } else {
+    // Dim, so it cannot contribute to the §6 brown-out. Also doubles as the
+    // liveness tell: if the chase freezes, loop() is blocked.
+    leds.chase(now);
+  }
 
   if (now - lastAccelMs >= 200) {
-    lastAccelMs                 = now;
-    const badge::AccelReading r = accel.read();
+    lastAccelMs = now;
+    // Cached copy from the sampling task. Reading the sensor directly here
+    // would race that task on the shared I2C bus.
+    const badge::AccelReading r = detector.lastReading();
     if (r.valid) {
       display.linef(kRowAccelValues, ST77XX_WHITE, "x%5d y%5d z%5d", r.x_mg,
                     r.y_mg, r.z_mg);

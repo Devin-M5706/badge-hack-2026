@@ -22,3 +22,7 @@ wifi_credentials.h
 # Logs and captures
 *.log
 serial-*.txt
+
+# Host-side bridge (host/)
+node_modules/
+.env
