@@ -1,4 +1,4 @@
-# badge-hack-2026
+# knck2
 
 Firmware starter for the **Hack the North 2026 hacker badge** (ESP32-C3).
 Clone it, flash it, and the screen, buttons, LEDs and accelerometer are already
@@ -63,8 +63,8 @@ how.
 ## Quickstart
 
 ```bash
-git clone https://github.com/Devin-M5706/badge-hack-2026.git
-cd badge-hack-2026
+git clone https://github.com/Devin-M5706/knck2.git
+cd knck2
 scripts/setup.ps1              # Windows   (or: scripts/setup.sh)
 
 cd firmware
