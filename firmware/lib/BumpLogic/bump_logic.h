@@ -57,7 +57,8 @@ constexpr int kEmaShift = 7;
 // shift of 7 a 100 mg offset gives (100 >> 7) == 0 and the tracker never
 // converges — it stalls at zero forever and every sample looks like a bump.
 constexpr int kEmaFrac = 8;
-static_assert(kEmaFrac >= kEmaShift, "EMA fraction must be >= shift or the tracker stalls");
+static_assert(kEmaFrac >= kEmaShift,
+              "EMA fraction must be >= shift or the tracker stalls");
 
 // Iterations of blanking after a reset while the gravity estimate settles.
 constexpr int32_t kWarmIters = 320;
@@ -103,14 +104,14 @@ constexpr Config kDefaults = {
     /*qgate_mg*/ 240,
     /*qneed   */ 80,  // 200 ms
     /*qpen    */ 8,
-    /*dshift  */ 2,   // gate = thr/4 = 375 mg
-    /*dwin    */ 24,  // 60 ms: a hand dies in 10-40 ms, a desk rings for
-                      //        50-200 ms, so the window sits in the gap
-    /*dhot_max*/ 8,   // of 24. The main anti-slam knob; sweep 8 -> 5 -> 3
-    /*dq_need */ 4,   // 10 ms of quiet to call it over
-    /*refr    */ 100, // 250 ms. Longer than any ringdown, and longer than a
-                      //         human double-knock floor (~100-150 ms)
-    /*rlock   */ 40,  // 100 ms
+    /*dshift  */ 2,    // gate = thr/4 = 375 mg
+    /*dwin    */ 24,   // 60 ms: a hand dies in 10-40 ms, a desk rings for
+                       //        50-200 ms, so the window sits in the gap
+    /*dhot_max*/ 8,    // of 24. The main anti-slam knob; sweep 8 -> 5 -> 3
+    /*dq_need */ 4,    // 10 ms of quiet to call it over
+    /*refr    */ 100,  // 250 ms. Longer than any ringdown, and longer than a
+                       //         human double-knock floor (~100-150 ms)
+    /*rlock   */ 40,   // 100 ms
     /*agit_max*/ 600,
     /*agit_en */ 1,
 };
@@ -150,7 +151,7 @@ struct Event {
 struct Model {
   int32_t w0, w_peak, w_hot, w_qcons, w_qrun, w_agit;
   int32_t shift;
-  int32_t trained;   // 0 = placeholder, never trained; refuse to use it
+  int32_t trained;  // 0 = placeholder, never trained; refuse to use it
 };
 
 // Placeholder. train_knock.py overwrites this with real weights; trained=0
@@ -162,16 +163,16 @@ constexpr Model kUntrainedModel = {0, 0, 0, 0, 0, 0, 0, 0};
 // ACCEPTED AND REJECTED candidates alike — a classifier trained only on the
 // accepted ones has no negative class and cannot learn anything.
 struct Candidate {
-  int32_t peak_mg;    // peak L1 magnitude over the window
-  int32_t hot;        // samples above the ringdown gate
-  int32_t qcons;      // trailing consecutive quiet samples
-  int32_t qrun_arm;   // isolation credit at the moment it armed
-  int32_t agit_arm;   // agitation level at the moment it armed
+  int32_t peak_mg;   // peak L1 magnitude over the window
+  int32_t hot;       // samples above the ringdown gate
+  int32_t qcons;     // trailing consecutive quiet samples
+  int32_t qrun_arm;  // isolation credit at the moment it armed
+  int32_t agit_arm;  // agitation level at the moment it armed
   uint8_t axis;
   uint8_t clipped;
-  uint8_t accepted;   // the verdict the ACTIVE rule reached
-  uint8_t by_model;   // 1 if the learned rule decided, 0 if hand-tuned
-  int32_t score;      // model score when by_model, else 0
+  uint8_t accepted;  // the verdict the ACTIVE rule reached
+  uint8_t by_model;  // 1 if the learned rule decided, 0 if hand-tuned
+  int32_t score;     // model score when by_model, else 0
 };
 
 struct Stats {
@@ -235,13 +236,13 @@ class Detector {
   int32_t peak_;
   int32_t hot_;
   int32_t qcons_;
-  int32_t qrun_arm_;   // isolation credit captured when the candidate armed
+  int32_t qrun_arm_;  // isolation credit captured when the candidate armed
   int32_t agit_arm_;
   uint8_t pk_axis_;
   bool in_decay_;
   bool pk_clipped_;
 
-  Model model_ = kUntrainedModel;
+  Model model_    = kUntrainedModel;
   bool use_model_ = false;
 };
 

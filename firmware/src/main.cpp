@@ -109,8 +109,10 @@ void setup() {
                 bumpOk ? "0" : "detector off");
   Serial.printf("bump detector: %s\r\n", bumpOk ? "running at 400 Hz" : "off");
   if (bumpOk) {
-    Serial.println(F("note: run 'bump flip' -- one axis must read ~+/-1000 mg"));
-    Serial.println(F("      at rest. ~250 means the HR/full-scale write failed."));
+    Serial.println(
+        F("note: run 'bump flip' -- one axis must read ~+/-1000 mg"));
+    Serial.println(
+        F("      at rest. ~250 means the HR/full-scale write failed."));
   }
 
   display.line(kRowHint, "serial: type help", ST77XX_CYAN);
@@ -152,8 +154,8 @@ void loop() {
     bump::Candidate c;
     char label[12];
     while (detector.pollCandidate(&c, label, sizeof(label))) {
-      Serial.printf("cand,%s,%ld,%ld,%ld,%ld,%ld,%u,%u,%u,%u,%ld\r\n",
-                    label, (long)c.peak_mg, (long)c.hot, (long)c.qcons,
+      Serial.printf("cand,%s,%ld,%ld,%ld,%ld,%ld,%u,%u,%u,%u,%ld\r\n", label,
+                    (long)c.peak_mg, (long)c.hot, (long)c.qcons,
                     (long)c.qrun_arm, (long)c.agit_arm, c.axis, c.clipped,
                     c.accepted, c.by_model, (long)c.score);
     }
@@ -168,10 +170,10 @@ void loop() {
     // One NDJSON object per line, starting at column 0 with '{'. That single
     // character is the whole protocol the host-side bridge filters on; every
     // other line this firmware prints is human-facing.
-    Serial.printf("{\"seq\":%lu,\"t_ms\":%lu,\"mg\":%ld,\"axis\":%u,\"flags\":%u}\r\n",
-                  static_cast<unsigned long>(ev.seq),
-                  static_cast<unsigned long>(ev.t_ms),
-                  static_cast<long>(ev.peak_mg), ev.axis, ev.flags);
+    Serial.printf(
+        "{\"seq\":%lu,\"t_ms\":%lu,\"mg\":%ld,\"axis\":%u,\"flags\":%u}\r\n",
+        static_cast<unsigned long>(ev.seq), static_cast<unsigned long>(ev.t_ms),
+        static_cast<long>(ev.peak_mg), ev.axis, ev.flags);
 
     display.linef(kRowKnocks, ST77XX_GREEN, "knocks: %lu  %ld mg",
                   static_cast<unsigned long>(knockCount),

@@ -33,12 +33,12 @@
 namespace badge {
 
 struct BumpEvent {
-  uint32_t t_ms    = 0;  // millis() at the DECISION sample, which is the peak
-                         // plus the ringdown window (~60 ms), not the impact
-  int32_t peak_mg  = 0;
-  uint8_t axis     = 0;  // bump::kAxisX/Y/Z. Z => face or flat-on-desk knock
-  uint8_t flags    = 0;  // bump::kFlag* bitmask
-  uint32_t seq     = 0;  // counts detections; a gap here means a dropped event
+  uint32_t t_ms   = 0;  // millis() at the DECISION sample, which is the peak
+                        // plus the ringdown window (~60 ms), not the impact
+  int32_t peak_mg = 0;
+  uint8_t axis    = 0;  // bump::kAxisX/Y/Z. Z => face or flat-on-desk knock
+  uint8_t flags   = 0;  // bump::kFlag* bitmask
+  uint32_t seq    = 0;  // counts detections; a gap here means a dropped event
 };
 
 class BumpDetector {
@@ -92,9 +92,11 @@ class BumpDetector {
   uint32_t sampleRateHz() const;
   uint32_t worstGapUs() const { return worst_gap_us_; }
   uint32_t lateCount() const { return late_; }
-  uint32_t emptyPolls() const { return empty_; }  // polls with no new sample;
-                                                  // ~20% is healthy, ~0% means
-                                                  // we are slower than the ODR
+  uint32_t emptyPolls() const {
+    return empty_;
+  }  // polls with no new sample;
+     // ~20% is healthy, ~0% means
+     // we are slower than the ODR
   uint32_t drops() const { return drops_; }
 
   // ── config persistence ──────────────────────────────────────────────────
@@ -114,24 +116,24 @@ class BumpDetector {
     char label[12];
   };
 
-  Accel* accel_            = nullptr;
+  Accel* accel_ = nullptr;
   bump::Detector logic_;
-  QueueHandle_t queue_     = nullptr;
-  QueueHandle_t cand_q_    = nullptr;
-  TaskHandle_t task_       = nullptr;
-  volatile bool paused_    = false;
-  volatile bool capture_   = false;
-  char label_[12]          = "unlabelled";
-  uint32_t cand_seen_      = 0;
-  uint32_t cand_drop_      = 0;
+  QueueHandle_t queue_   = nullptr;
+  QueueHandle_t cand_q_  = nullptr;
+  TaskHandle_t task_     = nullptr;
+  volatile bool paused_  = false;
+  volatile bool capture_ = false;
+  char label_[12]        = "unlabelled";
+  uint32_t cand_seen_    = 0;
+  uint32_t cand_drop_    = 0;
 
   AccelReading last_{};
-  uint32_t samples_        = 0;
-  uint32_t empty_          = 0;
-  uint32_t late_           = 0;
-  uint32_t worst_gap_us_   = 0;
-  uint32_t drops_          = 0;
-  uint32_t started_ms_     = 0;
+  uint32_t samples_      = 0;
+  uint32_t empty_        = 0;
+  uint32_t late_         = 0;
+  uint32_t worst_gap_us_ = 0;
+  uint32_t drops_        = 0;
+  uint32_t started_ms_   = 0;
 };
 
 }  // namespace badge

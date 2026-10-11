@@ -108,13 +108,17 @@ void Console::printHelp() {
       "  rot <0..3>      display rotation, if the image looks mirrored\r\n");
   writeChunked(
       "knock detector:\r\n"
-      "  bump            health line + current tuning (read this every pass)\r\n"
+      "  bump            health line + current tuning (read this every "
+      "pass)\r\n"
       "  bump flip       1g check: one axis ~+/-1000 mg at rest\r\n"
       "  bump thr <mg>   peak threshold        bump qgate <mg>  quiet gate\r\n"
       "  bump quiet <ms> quiet credit needed   bump refr <ms>   refractory\r\n"
-      "  bump win <ms>   ringdown window       bump hot <n>     max hot samples\r\n"
-      "  bump pen <n>    blip penalty          bump agit <0|1>  agitation veto\r\n"
-      "  bump agit <n>   agitation level (n>1) bump save|load|defaults|zero\r\n");
+      "  bump win <ms>   ringdown window       bump hot <n>     max hot "
+      "samples\r\n"
+      "  bump pen <n>    blip penalty          bump agit <0|1>  agitation "
+      "veto\r\n"
+      "  bump agit <n>   agitation level (n>1) bump "
+      "save|load|defaults|zero\r\n");
   writeChunked(
       "training capture:\r\n"
       "  bump label <name>   tag rows: knock | slam | walk | desk ...\r\n"
@@ -134,9 +138,9 @@ void Console::printBump() {
     Serial.println(F("! bump detector unavailable"));
     return;
   }
-  const bump::Stats& s      = bump_->logicStats();
-  const bump::Config& c     = bump_->config();
-  const AccelReading r      = bump_->lastReading();
+  const bump::Stats& s  = bump_->logicStats();
+  const bump::Config& c = bump_->config();
+  const AccelReading r  = bump_->lastReading();
 
   char out[256];
   snprintf(out, sizeof(out),
@@ -152,8 +156,8 @@ void Console::printBump() {
            static_cast<unsigned long>(s.rej_agit),
            static_cast<unsigned long>(s.rej_decay),
            static_cast<long>(s.mag_now), static_cast<long>(s.mag_max),
-           static_cast<long>(s.qrun), static_cast<long>(s.agit), r.x_mg,
-           r.y_mg, r.z_mg);
+           static_cast<long>(s.qrun), static_cast<long>(s.agit), r.x_mg, r.y_mg,
+           r.z_mg);
   writeChunked(out);
 
   // Print every tunable, including the three that are not settable from here
@@ -203,7 +207,8 @@ void Console::bumpCommand(char** cursor) {
     return;
   }
   if (strcmp(sub, "load") == 0) {
-    Serial.println(bump_->loadConfig() ? F("loaded") : F("! none stored, defaults"));
+    Serial.println(bump_->loadConfig() ? F("loaded")
+                                       : F("! none stored, defaults"));
     printBump();
     return;
   }
@@ -221,11 +226,14 @@ void Console::bumpCommand(char** cursor) {
   // ── training capture ────────────────────────────────────────────────────
   if (strcmp(sub, "cap") == 0) {
     const char* arg = nextToken(cursor);
-    const bool on = (arg == nullptr) ? !bump_->capturing() : (strcmp(arg, "off") != 0);
+    const bool on =
+        (arg == nullptr) ? !bump_->capturing() : (strcmp(arg, "off") != 0);
     bump_->captureOn(on);
     if (on) {
       // Header first so the captured stream is a self-describing CSV.
-      writeChunked("cand,label,peak_mg,hot,qcons,qrun,agit,axis,clipped,accepted,by_model,score\r\n");
+      writeChunked(
+          "cand,label,peak_mg,hot,qcons,qrun,agit,axis,clipped,accepted,by_"
+          "model,score\r\n");
       Serial.print(F("capture ON, label="));
       Serial.println(bump_->label());
     } else {
@@ -235,26 +243,33 @@ void Console::bumpCommand(char** cursor) {
   }
   if (strcmp(sub, "label") == 0) {
     const char* arg = nextToken(cursor);
-    if (arg == nullptr) { Serial.print(F("label=")); Serial.println(bump_->label()); return; }
+    if (arg == nullptr) {
+      Serial.print(F("label="));
+      Serial.println(bump_->label());
+      return;
+    }
     bump_->setLabel(arg);
     Serial.print(F("label="));
     Serial.println(bump_->label());
     return;
   }
   if (strcmp(sub, "model") == 0) {
-    const char* arg = nextToken(cursor);
+    const char* arg      = nextToken(cursor);
     const bump::Model& m = bump_->config_model();
     if (arg == nullptr) {
-      Serial.printf("model trained=%ld active=%d w=[%ld %ld %ld %ld %ld %ld] shift=%ld\r\n",
-                    (long)m.trained, bump_->usingModel() ? 1 : 0,
-                    (long)m.w0, (long)m.w_peak, (long)m.w_hot,
-                    (long)m.w_qcons, (long)m.w_qrun, (long)m.w_agit,
-                    (long)m.shift);
+      Serial.printf(
+          "model trained=%ld active=%d w=[%ld %ld %ld %ld %ld %ld] "
+          "shift=%ld\r\n",
+          (long)m.trained, bump_->usingModel() ? 1 : 0, (long)m.w0,
+          (long)m.w_peak, (long)m.w_hot, (long)m.w_qcons, (long)m.w_qrun,
+          (long)m.w_agit, (long)m.shift);
       return;
     }
     const bool on = strcmp(arg, "off") != 0;
     if (on && m.trained == 0) {
-      Serial.println(F("! no trained model in this build -- staying on the hand-tuned rule"));
+      Serial.println(
+          F("! no trained model in this build -- staying on the hand-tuned "
+            "rule"));
       return;
     }
     bump_->setUseModel(on);
@@ -286,8 +301,9 @@ void Console::bumpCommand(char** cursor) {
   // So clamp, and say what was clamped.
   auto atLeast = [](long value, long low, const char* what) -> int32_t {
     if (value < low) {
-      Serial.printf("! %s raised to %ld (below that it silently stops working)\r\n",
-                    what, low);
+      Serial.printf(
+          "! %s raised to %ld (below that it silently stops working)\r\n", what,
+          low);
       return static_cast<int32_t>(low);
     }
     return static_cast<int32_t>(value);
@@ -311,7 +327,8 @@ void Console::bumpCommand(char** cursor) {
     c.dhot_max = atLeast(v, 0, "hot");
     if (c.dhot_max > c.dwin) {
       c.dhot_max = c.dwin;
-      Serial.printf("! hot capped at the window length (%ld)\r\n", static_cast<long>(c.dwin));
+      Serial.printf("! hot capped at the window length (%ld)\r\n",
+                    static_cast<long>(c.dwin));
     }
   } else if (strcmp(sub, "pen") == 0) {
     c.qpen = atLeast(v, 1, "pen");
@@ -319,8 +336,10 @@ void Console::bumpCommand(char** cursor) {
     // 0 and 1 switch the veto; anything larger sets its level, which is an
     // [S] starting point the acceptance protocol expects you to tune. Without
     // this it was only changeable by reflashing.
-    if (v <= 1) c.agit_en = (v != 0) ? 1 : 0;
-    else        c.agit_max = static_cast<int32_t>(v);
+    if (v <= 1)
+      c.agit_en = (v != 0) ? 1 : 0;
+    else
+      c.agit_max = static_cast<int32_t>(v);
   } else {
     Serial.print(F("! unknown bump setting: "));
     Serial.println(sub);

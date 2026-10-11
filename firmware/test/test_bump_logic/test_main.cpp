@@ -49,7 +49,9 @@ int feedKnock(Detector& d, int16_t peak_mg, int width = 2) {
 }
 
 // Settle the gravity tracker past its warm-up blanking.
-void warmUp(Detector& d) { feedStill(d, kWarmIters + 8); }
+void warmUp(Detector& d) {
+  feedStill(d, kWarmIters + 8);
+}
 
 }  // namespace
 
@@ -125,7 +127,7 @@ void test_a_ringing_desk_slam_is_rejected() {
   Detector d;
   warmUp(d);
   Event ev;
-  int fired = 0;
+  int fired   = 0;
   int16_t amp = 3000;
   for (int i = 0; i < kDefaults.dwin + 4; ++i) {
     // Oscillate above and below the ringdown gate without settling.
@@ -177,7 +179,7 @@ void test_one_blip_long_before_a_knock_does_not_block_it() {
   warmUp(d);
   Event ev;
   d.feed(0, 0, static_cast<int16_t>(kRestZ + 500), &ev);  // one blip
-  feedStill(d, kDefaults.qneed + 20);                      // re-earn credit
+  feedStill(d, kDefaults.qneed + 20);                     // re-earn credit
   TEST_ASSERT_EQUAL_INT(1, feedKnock(d, 3000));
 }
 
@@ -213,10 +215,12 @@ void test_sequence_numbers_are_monotonic() {
   Detector d;
   warmUp(d);
   Event first{}, second{};
-  for (int i = 0; i < 2; ++i) d.feed(0, 0, static_cast<int16_t>(kRestZ + 3000), &first);
+  for (int i = 0; i < 2; ++i)
+    d.feed(0, 0, static_cast<int16_t>(kRestZ + 3000), &first);
   for (int i = 0; i < kDefaults.dwin; ++i) d.feed(0, 0, kRestZ, &first);
   feedStill(d, kDefaults.refr + kDefaults.qneed + 20);
-  for (int i = 0; i < 2; ++i) d.feed(0, 0, static_cast<int16_t>(kRestZ + 3000), &second);
+  for (int i = 0; i < 2; ++i)
+    d.feed(0, 0, static_cast<int16_t>(kRestZ + 3000), &second);
   for (int i = 0; i < kDefaults.dwin; ++i) d.feed(0, 0, kRestZ, &second);
   TEST_ASSERT_EQUAL_UINT32(1, first.seq);
   TEST_ASSERT_EQUAL_UINT32(2, second.seq);
@@ -255,7 +259,8 @@ void test_a_marginal_knock_is_flagged_weak() {
   warmUp(d);
   Event ev{};
   const int16_t marginal = static_cast<int16_t>(kDefaults.thr_mg + 100);
-  for (int i = 0; i < 2; ++i) d.feed(0, 0, static_cast<int16_t>(kRestZ + marginal), &ev);
+  for (int i = 0; i < 2; ++i)
+    d.feed(0, 0, static_cast<int16_t>(kRestZ + marginal), &ev);
   for (int i = 0; i < kDefaults.dwin; ++i) d.feed(0, 0, kRestZ, &ev);
   TEST_ASSERT_TRUE((ev.flags & kFlagWeak) != 0);
 }
@@ -267,7 +272,8 @@ void test_disabling_the_agitation_veto_marks_events_unvetted() {
   d.config().agit_en = 0;
   warmUp(d);
   Event ev{};
-  for (int i = 0; i < 2; ++i) d.feed(0, 0, static_cast<int16_t>(kRestZ + 3000), &ev);
+  for (int i = 0; i < 2; ++i)
+    d.feed(0, 0, static_cast<int16_t>(kRestZ + 3000), &ev);
   for (int i = 0; i < kDefaults.dwin; ++i) d.feed(0, 0, kRestZ, &ev);
   TEST_ASSERT_TRUE((ev.flags & kFlagUnvetted) != 0);
 }
@@ -293,7 +299,8 @@ void test_rejection_counters_attribute_the_veto() {
     const int16_t v = (i % 2 == 0) ? 700 : -700;
     d.feed(0, 0, static_cast<int16_t>(kRestZ + v), &ev);
   }
-  for (int i = 0; i < 2; ++i) d.feed(0, 0, static_cast<int16_t>(kRestZ + 3000), &ev);
+  for (int i = 0; i < 2; ++i)
+    d.feed(0, 0, static_cast<int16_t>(kRestZ + 3000), &ev);
   TEST_ASSERT_GREATER_THAN_UINT32(0, d.stats().rej_quiet + d.stats().rej_agit);
   TEST_ASSERT_EQUAL_UINT32(0, d.stats().events);
 }

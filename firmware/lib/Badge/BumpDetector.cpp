@@ -13,8 +13,8 @@ constexpr uint32_t POLL_MS = 2;
 
 // Above the Arduino loopTask (priority 1) so a display blit or an LED refresh
 // cannot starve sampling. Below the idle-critical system tasks.
-constexpr UBaseType_t TASK_PRIO  = 6;
-constexpr uint32_t TASK_STACK    = 3072;
+constexpr UBaseType_t TASK_PRIO = 6;
+constexpr uint32_t TASK_STACK   = 3072;
 
 // 4 events is a full second of backlog at a 250 ms refractory. A consumer that
 // cannot drain one second of knocks is wedged, and the right answer is to drop
@@ -42,13 +42,17 @@ bool BumpDetector::begin(Accel* accel) {
   // far more often than accepted knocks (every table slam is one), and losing
   // rows biases the training set toward whatever the console kept up with.
   cand_q_ = xQueueCreate(24, sizeof(CandRow));
-  if (cand_q_ == nullptr) { vQueueDelete(queue_); queue_ = nullptr; return false; }
+  if (cand_q_ == nullptr) {
+    vQueueDelete(queue_);
+    queue_ = nullptr;
+    return false;
+  }
 
   started_ms_ = millis();
   logic_.reset();
 
-  const BaseType_t ok = xTaskCreate(&BumpDetector::trampoline, "bump", TASK_STACK,
-                                    this, TASK_PRIO, &task_);
+  const BaseType_t ok = xTaskCreate(&BumpDetector::trampoline, "bump",
+                                    TASK_STACK, this, TASK_PRIO, &task_);
   if (ok != pdPASS) {
     task_ = nullptr;
     vQueueDelete(queue_);
@@ -63,15 +67,15 @@ void BumpDetector::trampoline(void* self) {
 }
 
 void BumpDetector::loop() {
-  TickType_t next  = xTaskGetTickCount();
-  int64_t prev_us  = esp_timer_get_time();
+  TickType_t next = xTaskGetTickCount();
+  int64_t prev_us = esp_timer_get_time();
 
   for (;;) {
     if (paused_) {
       vTaskDelay(pdMS_TO_TICKS(10));
       // Re-anchor the deadline, or xTaskDelayUntil replays every missed 2 ms
       // tick in a burst and hammers the bus the instant we resume.
-      next = xTaskGetTickCount();
+      next    = xTaskGetTickCount();
       prev_us = esp_timer_get_time();
       continue;
     }
@@ -98,9 +102,9 @@ void BumpDetector::loop() {
     bump::Event ev;
     bump::Candidate cand{};
     bool have_cand = false;
-    const bool fired = logic_.feed(r.x_mg, r.y_mg, r.z_mg, &ev,
-                                   capture_ ? &cand : nullptr,
-                                   capture_ ? &have_cand : nullptr);
+    const bool fired =
+        logic_.feed(r.x_mg, r.y_mg, r.z_mg, &ev, capture_ ? &cand : nullptr,
+                    capture_ ? &have_cand : nullptr);
 
     if (have_cand && cand_q_ != nullptr) {
       ++cand_seen_;
@@ -109,7 +113,8 @@ void BumpDetector::loop() {
       // Copy the label under the sampler rather than at print time: by then
       // the operator may already have moved on to the next session.
       size_t i = 0;
-      for (; i + 1 < sizeof(row.label) && label_[i] != '\0'; ++i) row.label[i] = label_[i];
+      for (; i + 1 < sizeof(row.label) && label_[i] != '\0'; ++i)
+        row.label[i] = label_[i];
       row.label[i] = '\0';
       if (xQueueSend(cand_q_, &row, 0) != pdTRUE) ++cand_drop_;
     }
@@ -134,7 +139,8 @@ bool BumpDetector::poll(BumpEvent* out) {
 void BumpDetector::setLabel(const char* label) {
   size_t i = 0;
   if (label != nullptr)
-    for (; i + 1 < sizeof(label_) && label[i] != '\0'; ++i) label_[i] = label[i];
+    for (; i + 1 < sizeof(label_) && label[i] != '\0'; ++i)
+      label_[i] = label[i];
   label_[i] = '\0';
 }
 
@@ -146,13 +152,16 @@ bool BumpDetector::pollCandidate(bump::Candidate* out, char* label_out,
   *out = row.c;
   if (label_out != nullptr && label_cap > 0) {
     size_t i = 0;
-    for (; i + 1 < label_cap && row.label[i] != '\0'; ++i) label_out[i] = row.label[i];
+    for (; i + 1 < label_cap && row.label[i] != '\0'; ++i)
+      label_out[i] = row.label[i];
     label_out[i] = '\0';
   }
   return true;
 }
 
-void BumpDetector::pause() { paused_ = true; }
+void BumpDetector::pause() {
+  paused_ = true;
+}
 
 void BumpDetector::resume() {
   // Re-seed gravity and re-blank detection. Without this the gravity step
@@ -181,7 +190,8 @@ AccelReading BumpDetector::lastReading() const {
 uint32_t BumpDetector::sampleRateHz() const {
   const uint32_t elapsed = millis() - started_ms_;
   if (elapsed < 1000u) return 0;
-  return static_cast<uint32_t>((static_cast<uint64_t>(samples_) * 1000u) / elapsed);
+  return static_cast<uint32_t>((static_cast<uint64_t>(samples_) * 1000u) /
+                               elapsed);
 }
 
 bool BumpDetector::saveConfig() {
@@ -219,6 +229,8 @@ bool BumpDetector::loadConfig() {
   return ok;
 }
 
-void BumpDetector::resetConfig() { config() = bump::kDefaults; }
+void BumpDetector::resetConfig() {
+  config() = bump::kDefaults;
+}
 
 }  // namespace badge

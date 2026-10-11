@@ -3,7 +3,9 @@
 namespace bump {
 namespace {
 
-inline int32_t iabs32(int32_t v) { return v < 0 ? -v : v; }
+inline int32_t iabs32(int32_t v) {
+  return v < 0 ? -v : v;
+}
 
 }  // namespace
 
@@ -18,19 +20,19 @@ void Detector::clearStats() {
 
 void Detector::reset() {
   ema_[0] = ema_[1] = ema_[2] = 0;
-  qrun_       = 0;
-  agit_       = 0;
-  warm_       = kWarmIters;
-  lock_       = 0;
-  dn_         = 0;
-  peak_       = 0;
-  hot_        = 0;
-  qcons_      = 0;
-  qrun_arm_   = 0;
-  agit_arm_   = 0;
-  pk_axis_    = kAxisZ;
-  in_decay_   = false;
-  pk_clipped_ = false;
+  qrun_                       = 0;
+  agit_                       = 0;
+  warm_                       = kWarmIters;
+  lock_                       = 0;
+  dn_                         = 0;
+  peak_                       = 0;
+  hot_                        = 0;
+  qcons_                      = 0;
+  qrun_arm_                   = 0;
+  agit_arm_                   = 0;
+  pk_axis_                    = kAxisZ;
+  in_decay_                   = false;
+  pk_clipped_                 = false;
 }
 
 // Feature scaling, shared with tools/train_knock.py. Both sides must agree or
@@ -39,9 +41,15 @@ void Detector::reset() {
 //   qrun  -> credit >> 4
 //   agit  -> level >> 4
 //   hot, qcons pass through: both are already small sample counts.
-static inline int32_t f_peak(int32_t mg)   { return mg >> 4; }
-static inline int32_t f_qrun(int32_t cr)   { return cr >> 4; }
-static inline int32_t f_agit(int32_t ag)   { return ag >> 4; }
+static inline int32_t f_peak(int32_t mg) {
+  return mg >> 4;
+}
+static inline int32_t f_qrun(int32_t cr) {
+  return cr >> 4;
+}
+static inline int32_t f_agit(int32_t ag) {
+  return ag >> 4;
+}
 
 bool Detector::feed(int16_t x_mg, int16_t y_mg, int16_t z_mg, Event* out,
                     Candidate* cand, bool* cand_valid) {
@@ -64,7 +72,8 @@ bool Detector::feed(int16_t x_mg, int16_t y_mg, int16_t z_mg, Event* out,
     const int32_t xq = static_cast<int32_t>(raw[i]) << kEmaFrac;
     if (warm_ == kWarmIters) ema_[i] = xq;  // seed on the first sample
     ema_[i] += (xq - ema_[i]) >> kEmaShift;
-    const int32_t ac = iabs32(static_cast<int32_t>(raw[i]) - (ema_[i] >> kEmaFrac));
+    const int32_t ac =
+        iabs32(static_cast<int32_t>(raw[i]) - (ema_[i] >> kEmaFrac));
     mag += ac;
     if (ac > amax) {
       amax = ac;
@@ -125,10 +134,11 @@ bool Detector::feed(int16_t x_mg, int16_t y_mg, int16_t z_mg, Event* out,
     pk_clipped_ = clipped;
     hot_        = 0;
     qcons_      = 0;
-    qrun_arm_   = qrun_;   // snapshot: by the time the window closes this has moved
-    agit_arm_   = agit_;
-    dn_         = cfg_.dwin;
-    in_decay_   = true;
+    qrun_arm_ =
+        qrun_;  // snapshot: by the time the window closes this has moved
+    agit_arm_ = agit_;
+    dn_       = cfg_.dwin;
+    in_decay_ = true;
     return false;
   }
 
@@ -155,12 +165,9 @@ bool Detector::feed(int16_t x_mg, int16_t y_mg, int16_t z_mg, Event* out,
   bool accept;
   int32_t score = 0;
   if (use_model_) {
-    score = model_.w0
-          + model_.w_peak  * f_peak(peak_)
-          + model_.w_hot   * hot_
-          + model_.w_qcons * qcons_
-          + model_.w_qrun  * f_qrun(qrun_arm_)
-          + model_.w_agit  * f_agit(agit_arm_);
+    score = model_.w0 + model_.w_peak * f_peak(peak_) + model_.w_hot * hot_ +
+            model_.w_qcons * qcons_ + model_.w_qrun * f_qrun(qrun_arm_) +
+            model_.w_agit * f_agit(agit_arm_);
     score >>= model_.shift;
     accept = score > 0;
   } else {
