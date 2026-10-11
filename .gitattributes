@@ -1,0 +1,18 @@
+# Normalize to LF in the repository.
+#
+# This is not cosmetic: .githooks/* are POSIX shell scripts, and a CRLF
+# shebang line can make them fail to execute. PowerShell and batch files are
+# pinned to CRLF because that is what Windows tooling expects.
+* text=auto eol=lf
+
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary — never touch these.
+*.bin binary
+*.elf binary
+*.hex binary
+*.png binary
+*.jpg binary
+*.gltf binary

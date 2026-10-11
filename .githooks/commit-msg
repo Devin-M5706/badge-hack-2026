@@ -1,0 +1,61 @@
+#!/bin/sh
+# commit-msg — enforce Conventional Commits.
+#
+# Deliberately plain POSIX shell: no Node, no husky, no commitlint. A firmware
+# repo should not need a JavaScript toolchain to check a string, and anything
+# that needs `npm install` before you can commit will get bypassed at hour 6.
+#
+# Install with: scripts/setup.sh  (or scripts/setup.ps1 on Windows)
+# Bypass once, knowingly:  git commit --no-verify
+
+msg_file="$1"
+[ -r "$msg_file" ] || exit 0
+
+# First non-comment, non-empty line is the subject.
+subject=$(grep -v '^#' "$msg_file" | sed '/^[[:space:]]*$/d' | head -n 1)
+
+# Nothing to check — git will abort the empty commit itself.
+[ -z "$subject" ] && exit 0
+
+# Git generates these itself; they are not ours to reformat.
+case "$subject" in
+  "Merge "*|"Revert "*|"Reapply "*|fixup!*|squash!*|amend!*)
+    exit 0
+    ;;
+esac
+
+types='feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert'
+
+if ! printf '%s' "$subject" |
+     grep -Eq "^($types)(\([a-z0-9._/-]+\))?!?: .+"; then
+  cat >&2 <<MSG
+
+  ✗ Commit message does not follow Conventional Commits.
+
+    got:      $subject
+
+    expected: <type>(<optional scope>): <subject>
+    types:    $(printf '%s' "$types" | tr '|' ' ')
+
+    examples: feat(buttons): add HC165 bit-bang read
+              fix(accel): set auto-increment bit on multi-byte reads
+              docs: note the hold-Start download mode step
+
+  Why: every commit subject becomes a changelog line and a bisect label.
+  "wip", "stuff" and "67" are unreadable three weeks later.
+
+  Bypass once with: git commit --no-verify
+
+MSG
+  exit 1
+fi
+
+# Soft limit. Warn, do not block — a slightly long subject is not worth
+# losing a commit message over.
+subject_len=$(printf '%s' "$subject" | wc -c | tr -d ' ')
+if [ "$subject_len" -gt 72 ]; then
+  printf '  ! subject is %s chars; under 72 reads better in git log\n' \
+    "$subject_len" >&2
+fi
+
+exit 0
