@@ -63,6 +63,15 @@ pio test -e native      # must pass
 CI runs both. Formatting is checked but never blocks a merge — a red X over
 brace placement at hour 6 only teaches people to ignore CI.
 
+`clang-format` is pinned to a specific version, because different versions
+format the same file differently and an unpinned formatter means CI and your
+laptop disagree forever:
+
+```bash
+python -m pip install --user clang-format==23.1.3
+clang-format -i --style=file firmware/src/*.cpp firmware/lib/*/*.cpp firmware/lib/*/*.h
+```
+
 ## Tests
 
 Write them for logic that is easy to get silently wrong: bit order, sign

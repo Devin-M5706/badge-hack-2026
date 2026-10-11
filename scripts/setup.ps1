@@ -51,7 +51,9 @@ if ($null -ne $clang) {
   Write-Host "  clang-format $(clang-format --version)"
 }
 else {
-  Write-Host '  clang-format not found (optional; format check will be skipped)'
+  Write-Host '  clang-format not found'
+  Write-Host '               install the pinned version with:'
+  Write-Host '               python -m pip install --user clang-format==23.1.3'
 }
 
 Write-Host ''
