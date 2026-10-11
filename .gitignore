@@ -1,0 +1,24 @@
+# PlatformIO build output + downloaded toolchains
+.pio/
+firmware/.pio/
+*.elf
+*.bin
+*.hex
+*.map
+
+# Editors / IDE
+.vscode/
+.idea/
+*.code-workspace
+.DS_Store
+Thumbs.db
+
+# Secrets. Commit .env.example instead, never .env.
+.env
+.env.local
+secrets.h
+wifi_credentials.h
+
+# Logs and captures
+*.log
+serial-*.txt

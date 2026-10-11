@@ -1,0 +1,11 @@
+# Google style at 80 columns. Chosen because it is the default every C++
+# formatter already knows, so nobody has to argue about braces at 2am.
+BasedOnStyle: Google
+Language: Cpp
+Standard: c++17
+ColumnLimit: 80
+IndentWidth: 2
+AccessModifierOffset: -1
+AlignConsecutiveAssignments: true
+AllowShortFunctionsOnASingleLine: Inline
+SortIncludes: true
