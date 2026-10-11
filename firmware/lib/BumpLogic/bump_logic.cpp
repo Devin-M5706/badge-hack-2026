@@ -26,12 +26,26 @@ void Detector::reset() {
   peak_       = 0;
   hot_        = 0;
   qcons_      = 0;
+  qrun_arm_   = 0;
+  agit_arm_   = 0;
   pk_axis_    = kAxisZ;
   in_decay_   = false;
   pk_clipped_ = false;
 }
 
-bool Detector::feed(int16_t x_mg, int16_t y_mg, int16_t z_mg, Event* out) {
+// Feature scaling, shared with tools/train_knock.py. Both sides must agree or
+// the trained weights mean nothing on the badge.
+//   peak  -> mg >> 4   (1500 mg becomes 93)
+//   qrun  -> credit >> 4
+//   agit  -> level >> 4
+//   hot, qcons pass through: both are already small sample counts.
+static inline int32_t f_peak(int32_t mg)   { return mg >> 4; }
+static inline int32_t f_qrun(int32_t cr)   { return cr >> 4; }
+static inline int32_t f_agit(int32_t ag)   { return ag >> 4; }
+
+bool Detector::feed(int16_t x_mg, int16_t y_mg, int16_t z_mg, Event* out,
+                    Candidate* cand, bool* cand_valid) {
+  if (cand_valid != nullptr) *cand_valid = false;
   const int16_t raw[3] = {x_mg, y_mg, z_mg};
   bool clipped         = false;
   for (int i = 0; i < 3; ++i) {
@@ -111,6 +125,8 @@ bool Detector::feed(int16_t x_mg, int16_t y_mg, int16_t z_mg, Event* out) {
     pk_clipped_ = clipped;
     hot_        = 0;
     qcons_      = 0;
+    qrun_arm_   = qrun_;   // snapshot: by the time the window closes this has moved
+    agit_arm_   = agit_;
     dn_         = cfg_.dwin;
     in_decay_   = true;
     return false;
@@ -135,8 +151,41 @@ bool Detector::feed(int16_t x_mg, int16_t y_mg, int16_t z_mg, Event* out) {
   in_decay_ = false;
   lock_     = cfg_.refr;  // refractory starts whether we accept or reject
 
-  if (hot_ > cfg_.dhot_max || qcons_ < cfg_.dq_need) {
-    ++st_.rej_decay;  // it rang, or it never went quiet: a desk, not a knock
+  // ── the final accept: hand-tuned rule, or the learned one ───────────────
+  bool accept;
+  int32_t score = 0;
+  if (use_model_) {
+    score = model_.w0
+          + model_.w_peak  * f_peak(peak_)
+          + model_.w_hot   * hot_
+          + model_.w_qcons * qcons_
+          + model_.w_qrun  * f_qrun(qrun_arm_)
+          + model_.w_agit  * f_agit(agit_arm_);
+    score >>= model_.shift;
+    accept = score > 0;
+  } else {
+    // It rang, or it never went quiet: a desk, not a knock.
+    accept = !(hot_ > cfg_.dhot_max || qcons_ < cfg_.dq_need);
+  }
+
+  // Capture every candidate, accepted or not. The rejected ones ARE the
+  // negative class; without them there is nothing to train against.
+  if (cand != nullptr) {
+    cand->peak_mg  = peak_;
+    cand->hot      = hot_;
+    cand->qcons    = qcons_;
+    cand->qrun_arm = qrun_arm_;
+    cand->agit_arm = agit_arm_;
+    cand->axis     = pk_axis_;
+    cand->clipped  = pk_clipped_ ? 1 : 0;
+    cand->accepted = accept ? 1 : 0;
+    cand->by_model = use_model_ ? 1 : 0;
+    cand->score    = score;
+    if (cand_valid != nullptr) *cand_valid = true;
+  }
+
+  if (!accept) {
+    ++st_.rej_decay;
     return false;
   }
 

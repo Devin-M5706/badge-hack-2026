@@ -130,6 +130,50 @@ struct Event {
   uint32_t seq;     // counts DETECTIONS; a gap downstream means a dropped event
 };
 
+// ── on-device learned decision ─────────────────────────────────────────────
+//
+// The hand-tuned rule for the final accept is `hot <= dhot_max && qcons >=
+// dq_need`: two integer comparisons chosen by sweeping them on a bench. This
+// is the learned alternative — a logistic regression over the five features
+// the detector has already computed by the time a candidate's ringdown window
+// closes, evaluated in fixed-point integers on the badge.
+//
+// It is deliberately NOT a replacement by default. `use_model` switches
+// between the two so both can be measured on the same hardware against the
+// same acceptance protocol, which is the only honest way to claim the learned
+// rule is better (or to find out it isn't).
+//
+// Weights are trained by tools/train_knock.py from candidates captured off
+// the badge, and exported as a header. Scale: score = (w0 + Σ wᵢ·fᵢ) >> shift,
+// accept when score > 0. Every feature is pre-scaled to stay well inside
+// int32 (worst case ≈ 10⁷ before the shift).
+struct Model {
+  int32_t w0, w_peak, w_hot, w_qcons, w_qrun, w_agit;
+  int32_t shift;
+  int32_t trained;   // 0 = placeholder, never trained; refuse to use it
+};
+
+// Placeholder. train_knock.py overwrites this with real weights; trained=0
+// makes the detector fall back to the hand-tuned rule rather than silently
+// classifying with zeros.
+constexpr Model kUntrainedModel = {0, 0, 0, 0, 0, 0, 0, 0};
+
+// One armed candidate and what the detector decided about it. Emitted for
+// ACCEPTED AND REJECTED candidates alike — a classifier trained only on the
+// accepted ones has no negative class and cannot learn anything.
+struct Candidate {
+  int32_t peak_mg;    // peak L1 magnitude over the window
+  int32_t hot;        // samples above the ringdown gate
+  int32_t qcons;      // trailing consecutive quiet samples
+  int32_t qrun_arm;   // isolation credit at the moment it armed
+  int32_t agit_arm;   // agitation level at the moment it armed
+  uint8_t axis;
+  uint8_t clipped;
+  uint8_t accepted;   // the verdict the ACTIVE rule reached
+  uint8_t by_model;   // 1 if the learned rule decided, 0 if hand-tuned
+  int32_t score;      // model score when by_model, else 0
+};
+
 struct Stats {
   uint32_t samples;
   uint32_t events;
@@ -154,7 +198,19 @@ class Detector {
   // Feed one sample. Returns true exactly once per accepted knock, writing the
   // event to `out` (which may be null if the caller only wants the side
   // effects). O(1): no allocation, no division, no sqrt, six scalars of state.
-  bool feed(int16_t x_mg, int16_t y_mg, int16_t z_mg, Event* out);
+  //
+  // `cand`, when non-null, is filled on every sample where a candidate's
+  // ringdown window closes — accepted or rejected — and `cand_valid` is set
+  // to say whether it was written this call. That is the training-capture
+  // path; pass nullptr in normal operation and it costs nothing.
+  bool feed(int16_t x_mg, int16_t y_mg, int16_t z_mg, Event* out,
+            Candidate* cand = nullptr, bool* cand_valid = nullptr);
+
+  // The learned rule. Off until a trained model is installed.
+  Model& model() { return model_; }
+  const Model& model() const { return model_; }
+  void useModel(bool on) { use_model_ = on && model_.trained != 0; }
+  bool usingModel() const { return use_model_; }
 
   Config& config() { return cfg_; }
   const Config& config() const { return cfg_; }
@@ -179,9 +235,14 @@ class Detector {
   int32_t peak_;
   int32_t hot_;
   int32_t qcons_;
+  int32_t qrun_arm_;   // isolation credit captured when the candidate armed
+  int32_t agit_arm_;
   uint8_t pk_axis_;
   bool in_decay_;
   bool pk_clipped_;
+
+  Model model_ = kUntrainedModel;
+  bool use_model_ = false;
 };
 
 }  // namespace bump

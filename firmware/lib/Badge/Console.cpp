@@ -115,6 +115,11 @@ void Console::printHelp() {
       "  bump win <ms>   ringdown window       bump hot <n>     max hot samples\r\n"
       "  bump pen <n>    blip penalty          bump agit <0|1>  agitation veto\r\n"
       "  bump agit <n>   agitation level (n>1) bump save|load|defaults|zero\r\n");
+  writeChunked(
+      "training capture:\r\n"
+      "  bump label <name>   tag rows: knock | slam | walk | desk ...\r\n"
+      "  bump cap [off]      stream one CSV row per armed candidate\r\n"
+      "  bump model [off]    switch the final accept to the learned rule\r\n");
 }
 
 // One line, under the 256-byte USB write limit, printed once per tuning pass.
@@ -210,6 +215,51 @@ void Console::bumpCommand(char** cursor) {
   if (strcmp(sub, "zero") == 0) {
     bump_->clearStats();
     Serial.println(F("stats cleared"));
+    return;
+  }
+
+  // ── training capture ────────────────────────────────────────────────────
+  if (strcmp(sub, "cap") == 0) {
+    const char* arg = nextToken(cursor);
+    const bool on = (arg == nullptr) ? !bump_->capturing() : (strcmp(arg, "off") != 0);
+    bump_->captureOn(on);
+    if (on) {
+      // Header first so the captured stream is a self-describing CSV.
+      writeChunked("cand,label,peak_mg,hot,qcons,qrun,agit,axis,clipped,accepted,by_model,score\r\n");
+      Serial.print(F("capture ON, label="));
+      Serial.println(bump_->label());
+    } else {
+      Serial.println(F("capture OFF"));
+    }
+    return;
+  }
+  if (strcmp(sub, "label") == 0) {
+    const char* arg = nextToken(cursor);
+    if (arg == nullptr) { Serial.print(F("label=")); Serial.println(bump_->label()); return; }
+    bump_->setLabel(arg);
+    Serial.print(F("label="));
+    Serial.println(bump_->label());
+    return;
+  }
+  if (strcmp(sub, "model") == 0) {
+    const char* arg = nextToken(cursor);
+    const bump::Model& m = bump_->config_model();
+    if (arg == nullptr) {
+      Serial.printf("model trained=%ld active=%d w=[%ld %ld %ld %ld %ld %ld] shift=%ld\r\n",
+                    (long)m.trained, bump_->usingModel() ? 1 : 0,
+                    (long)m.w0, (long)m.w_peak, (long)m.w_hot,
+                    (long)m.w_qcons, (long)m.w_qrun, (long)m.w_agit,
+                    (long)m.shift);
+      return;
+    }
+    const bool on = strcmp(arg, "off") != 0;
+    if (on && m.trained == 0) {
+      Serial.println(F("! no trained model in this build -- staying on the hand-tuned rule"));
+      return;
+    }
+    bump_->setUseModel(on);
+    Serial.print(F("decision rule: "));
+    Serial.println(bump_->usingModel() ? F("LEARNED") : F("hand-tuned"));
     return;
   }
 

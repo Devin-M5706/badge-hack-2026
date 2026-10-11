@@ -53,6 +53,21 @@ class BumpDetector {
   // Non-blocking drain. Call every loop iteration; returns true per event.
   bool poll(BumpEvent* out);
 
+  // ── training capture ────────────────────────────────────────────────────
+  // With capture on, every armed candidate — accepted or rejected — is queued
+  // for the console to print as a CSV row, stamped with whatever label is
+  // currently set. You knock thirty times with the label "knock", slam the
+  // table thirty times with "slam", walk for a minute with "walk", and the
+  // result is a labelled dataset off a real badge, which is the one thing no
+  // public dataset can supply.
+  void captureOn(bool on) { capture_ = on; }
+  bool capturing() const { return capture_; }
+  void setLabel(const char* label);
+  const char* label() const { return label_; }
+  bool pollCandidate(bump::Candidate* out, char* label_out, size_t label_cap);
+  uint32_t candidatesSeen() const { return cand_seen_; }
+  uint32_t candidatesDropped() const { return cand_drop_; }
+
   // Around NFC. Safe from any task, idempotent.
   void pause();
   void resume();
@@ -62,6 +77,12 @@ class BumpDetector {
   // is no mutex here.
   bump::Config& config() { return logic_.config(); }
   const bump::Stats& logicStats() const { return logic_.stats(); }
+
+  // The learned decision rule, surfaced for the console so both rules can be
+  // measured on the same hardware.
+  const bump::Model& config_model() const { return logic_.model(); }
+  void setUseModel(bool on) { logic_.useModel(on); }
+  bool usingModel() const { return logic_.usingModel(); }
   void clearStats();
 
   // Cached, no bus access — for console readouts.
@@ -88,11 +109,21 @@ class BumpDetector {
   static void trampoline(void* self);
   void loop();
 
+  struct CandRow {
+    bump::Candidate c;
+    char label[12];
+  };
+
   Accel* accel_            = nullptr;
   bump::Detector logic_;
   QueueHandle_t queue_     = nullptr;
+  QueueHandle_t cand_q_    = nullptr;
   TaskHandle_t task_       = nullptr;
   volatile bool paused_    = false;
+  volatile bool capture_   = false;
+  char label_[12]          = "unlabelled";
+  uint32_t cand_seen_      = 0;
+  uint32_t cand_drop_      = 0;
 
   AccelReading last_{};
   uint32_t samples_        = 0;

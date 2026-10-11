@@ -144,6 +144,21 @@ void loop() {
     }
   }
 
+  // Training capture. One CSV row per armed candidate, accepted or rejected,
+  // printed before the event drain so a knock's own candidate row lands next
+  // to it in the log. Rejected candidates are the negative class the
+  // classifier needs, so they are not filtered out here.
+  if (detector.capturing()) {
+    bump::Candidate c;
+    char label[12];
+    while (detector.pollCandidate(&c, label, sizeof(label))) {
+      Serial.printf("cand,%s,%ld,%ld,%ld,%ld,%ld,%u,%u,%u,%u,%ld\r\n",
+                    label, (long)c.peak_mg, (long)c.hot, (long)c.qcons,
+                    (long)c.qrun_arm, (long)c.agit_arm, c.axis, c.clipped,
+                    c.accepted, c.by_model, (long)c.score);
+    }
+  }
+
   // Knock events. The detector already enqueued these from its own task, so
   // this is pure presentation — the feedback latency a user feels is the queue
   // drain, not the detection.

@@ -38,6 +38,12 @@ bool BumpDetector::begin(Accel* accel) {
   queue_ = xQueueCreate(QUEUE_DEPTH, sizeof(BumpEvent));
   if (queue_ == nullptr) return false;
 
+  // Deeper than the event queue: during a capture session candidates arrive
+  // far more often than accepted knocks (every table slam is one), and losing
+  // rows biases the training set toward whatever the console kept up with.
+  cand_q_ = xQueueCreate(24, sizeof(CandRow));
+  if (cand_q_ == nullptr) { vQueueDelete(queue_); queue_ = nullptr; return false; }
+
   started_ms_ = millis();
   logic_.reset();
 
@@ -90,7 +96,25 @@ void BumpDetector::loop() {
     ++samples_;
 
     bump::Event ev;
-    if (!logic_.feed(r.x_mg, r.y_mg, r.z_mg, &ev)) continue;
+    bump::Candidate cand{};
+    bool have_cand = false;
+    const bool fired = logic_.feed(r.x_mg, r.y_mg, r.z_mg, &ev,
+                                   capture_ ? &cand : nullptr,
+                                   capture_ ? &have_cand : nullptr);
+
+    if (have_cand && cand_q_ != nullptr) {
+      ++cand_seen_;
+      CandRow row;
+      row.c = cand;
+      // Copy the label under the sampler rather than at print time: by then
+      // the operator may already have moved on to the next session.
+      size_t i = 0;
+      for (; i + 1 < sizeof(row.label) && label_[i] != '\0'; ++i) row.label[i] = label_[i];
+      row.label[i] = '\0';
+      if (xQueueSend(cand_q_, &row, 0) != pdTRUE) ++cand_drop_;
+    }
+
+    if (!fired) continue;
 
     BumpEvent out;
     out.t_ms    = millis();
@@ -105,6 +129,27 @@ void BumpDetector::loop() {
 bool BumpDetector::poll(BumpEvent* out) {
   if (queue_ == nullptr || out == nullptr) return false;
   return xQueueReceive(queue_, out, 0) == pdTRUE;
+}
+
+void BumpDetector::setLabel(const char* label) {
+  size_t i = 0;
+  if (label != nullptr)
+    for (; i + 1 < sizeof(label_) && label[i] != '\0'; ++i) label_[i] = label[i];
+  label_[i] = '\0';
+}
+
+bool BumpDetector::pollCandidate(bump::Candidate* out, char* label_out,
+                                 size_t label_cap) {
+  if (cand_q_ == nullptr || out == nullptr) return false;
+  CandRow row;
+  if (xQueueReceive(cand_q_, &row, 0) != pdTRUE) return false;
+  *out = row.c;
+  if (label_out != nullptr && label_cap > 0) {
+    size_t i = 0;
+    for (; i + 1 < label_cap && row.label[i] != '\0'; ++i) label_out[i] = row.label[i];
+    label_out[i] = '\0';
+  }
+  return true;
 }
 
 void BumpDetector::pause() { paused_ = true; }
