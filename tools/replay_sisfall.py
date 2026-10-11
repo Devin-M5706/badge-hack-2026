@@ -132,6 +132,8 @@ class Detector:
         self.st = Stats()
         self.reset()
 
+    last_cand: dict | None = None
+
     def reset(self) -> None:
         self.ema = [0, 0, 0]
         self.qrun = 0
@@ -142,6 +144,8 @@ class Detector:
         self.peak = 0
         self.hot = 0
         self.qcons = 0
+        self.qrun_arm = 0
+        self.agit_arm = 0
         self.pk_axis = 2
         self.in_decay = False
         self.pk_clipped = False
@@ -204,6 +208,8 @@ class Detector:
                 self.lock = cfg.rlock
                 return None
             self.peak = mag
+            self.qrun_arm = self.qrun   # snapshot at arm, as bump_logic.cpp does:
+            self.agit_arm = self.agit   # both have moved by the time we decide
             self.pk_axis = ax
             self.pk_clipped = clipped
             self.hot = 0
@@ -231,7 +237,18 @@ class Detector:
         self.in_decay = False
         self.lock = cfg.refr
 
-        if self.hot > cfg.dhot_max or self.qcons < cfg.dq_need:
+        accept = not (self.hot > cfg.dhot_max or self.qcons < cfg.dq_need)
+        # Every armed candidate is recorded, accepted or rejected. The rejected
+        # ones are the negative class; a model trained only on accepted knocks
+        # has nothing to contrast against. Same schema the badge emits.
+        self.last_cand = {
+            'peak_mg': self.peak, 'hot': self.hot, 'qcons': self.qcons,
+            'qrun': self.qrun_arm, 'agit': self.agit_arm,
+            'axis': self.pk_axis, 'clipped': 1 if self.pk_clipped else 0,
+            'accepted': 1 if accept else 0,
+        }
+
+        if not accept:
             self.st.rej_decay += 1
             return None
 
@@ -320,6 +337,7 @@ class FileResult:
     rej_decay: int
     mag_max: int
     peaks: list = field(default_factory=list)
+    candidates: list = field(default_factory=list)
 
 
 def to_mg(ad: int, range_g: int, bits: int) -> int:
@@ -386,8 +404,12 @@ def run_file(path: Path, sensor: str, cfg: Config) -> FileResult | None:
 
     det = Detector(Config(**asdict(cfg)))
     peaks = []
+    cands: list[dict] = []
     for i, (x, y, z) in enumerate(rows):
+        det.last_cand = None
         ev = det.feed(x, y, z, i)
+        if det.last_cand is not None:
+            cands.append(det.last_cand)
         if ev is not None:
             peaks.append(ev.peak_mg)
 
@@ -396,7 +418,7 @@ def run_file(path: Path, sensor: str, cfg: Config) -> FileResult | None:
         samples=len(rows), seconds=len(rows) / TARGET_HZ,
         events=det.st.events, rej_quiet=det.st.rej_quiet,
         rej_agit=det.st.rej_agit, rej_decay=det.st.rej_decay,
-        mag_max=det.st.mag_max, peaks=peaks,
+        mag_max=det.st.mag_max, peaks=peaks, candidates=cands,
     )
 
 
@@ -481,6 +503,10 @@ def main() -> int:
     ap.add_argument("--emit-fixture", type=Path, default=None,
                     help="write a C header fixture for the CI equivalence test")
     ap.add_argument("--limit", type=int, default=0, help="only replay the first N files")
+    ap.add_argument("--emit-candidates", type=Path, default=None,
+                    help="write armed candidates as a CSV in the SAME schema the "
+                         "badge emits over serial, so dataset rows and badge rows "
+                         "are interchangeable to tools/train_knock.py")
     ap.add_argument("--fixture-cases", type=int, default=24,
                     help="how many files go into the fixture (keep the header small)")
     args = ap.parse_args()
@@ -590,6 +616,28 @@ def main() -> int:
             {"config": asdict(cfg), "sensor": args.sensor,
              "files": [asdict(r) for r in results]}, indent=1))
         print(f"\njson: {args.json}")
+
+    if args.emit_candidates:
+        # Schema is byte-identical to the firmware's `bump cap` output, so a
+        # dataset file and a badge capture can be concatenated and fed to
+        # tools/train_knock.py together. The label is the SisFall activity
+        # code -- ground truth about what the person was doing -- but NOBODY
+        # KNOCKED in this dataset, so every row here is a NEGATIVE example
+        # for knock detection. The positive class has to come off the badge.
+        hdr = ("cand,label,peak_mg,hot,qcons,qrun,agit,axis,clipped,"
+               "accepted,by_model,score")
+        n = 0
+        with args.emit_candidates.open("w", encoding="utf-8", newline="\n") as fh:
+            fh.write(hdr + "\n")
+            for r in results:
+                tag = f"sisfall_{r.kind}_{r.activity}"
+                for c in r.candidates:
+                    fh.write(
+                        f"cand,{tag},{c['peak_mg']},{c['hot']},{c['qcons']},"
+                        f"{c['qrun']},{c['agit']},{c['axis']},{c['clipped']},"
+                        f"{c['accepted']},0,0\n")
+                    n += 1
+        print(f"\ncandidates: {n} rows -> {args.emit_candidates}")
 
     if args.emit_fixture:
         emit_fixture(files, args.sensor, cfg, args.emit_fixture, args.fixture_cases)
