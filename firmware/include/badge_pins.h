@@ -5,7 +5,8 @@
 // Do not substitute values from generic ESP32 tutorials — this board does not
 // use the usual default SPI/I2C pins.
 //
-// If you change a number here, you are changing it everywhere. That is the point.
+// If you change a number here, you are changing it everywhere. That is the
+// point.
 
 #pragma once
 
@@ -20,13 +21,13 @@ constexpr int PIN_LCD_RST  = 4;
 constexpr int PIN_LCD_MISO = -1;  // write-only panel; no read line wired
 
 constexpr uint32_t LCD_SPI_HZ = 40000000;
-constexpr int      LCD_W      = 320;
-constexpr int      LCD_H      = 240;
+constexpr int LCD_W           = 320;
+constexpr int LCD_H           = 240;
 
 // ── Shared I2C bus: accelerometer + NFC, 400 kHz (§5, §7) ──────────────────
-constexpr int      PIN_I2C_SDA = 5;
-constexpr int      PIN_I2C_SCL = 6;
-constexpr uint32_t I2C_HZ      = 400000;
+constexpr int PIN_I2C_SDA = 5;
+constexpr int PIN_I2C_SCL = 6;
+constexpr uint32_t I2C_HZ = 400000;
 
 constexpr uint8_t ADDR_ACCEL = 0x19;  // SC7A20HTR
 constexpr uint8_t ADDR_NFC   = 0x26;  // MFRC522
@@ -48,8 +49,8 @@ constexpr int PIN_HC165_CLK  = 21;
 constexpr int PIN_START = 9;
 
 // ── LEDs: 6x WS2812B-2020, single data line, GRB order (§6) ────────────────
-constexpr int PIN_LED_DIN  = 3;
-constexpr int LED_COUNT    = 6;
+constexpr int PIN_LED_DIN = 3;
+constexpr int LED_COUNT   = 6;
 
 // 6 LEDs at full white can brown out the board on AA power (§6). This cap is
 // enforced in Leds::begin(); raise it only while on USB and only knowingly.

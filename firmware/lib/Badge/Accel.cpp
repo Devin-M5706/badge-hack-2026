@@ -34,7 +34,7 @@ bool Accel::begin() {
   Wire.setTimeOut(static_cast<uint16_t>(I2C_TIMEOUT_MS));
 
   uint8_t who = 0;
-  present_ = readRegs(REG_WHO_AM_I, &who, 1) && who == WHO_AM_I_EXPECTED;
+  present_    = readRegs(REG_WHO_AM_I, &who, 1) && who == WHO_AM_I_EXPECTED;
   if (!present_) return false;
 
   present_ = writeReg(REG_CTRL_REG1, CTRL_REG1_VALUE) &&

@@ -45,10 +45,11 @@ uint8_t Buttons::readShiftByte() {
 }
 
 uint16_t Buttons::readRaw() {
-  lastRawByte_ = readShiftByte();
+  lastRawByte_  = readShiftByte();
   uint16_t mask = decodeShiftByte(lastRawByte_);
 
-  if (digitalRead(PIN_START) == LOW) mask |= static_cast<uint16_t>(1u << BTN_START);
+  if (digitalRead(PIN_START) == LOW)
+    mask |= static_cast<uint16_t>(1u << BTN_START);
 
   // Fold in anything the console asked us to fake.
   if (injectedMask_ != 0) {
@@ -63,7 +64,8 @@ uint16_t Buttons::readRaw() {
 
 bool Buttons::poll() {
   const uint32_t now = millis();
-  if (static_cast<uint32_t>(now - lastPollMs_) < 10) return false;  // §3: ~10 ms
+  if (static_cast<uint32_t>(now - lastPollMs_) < 10)
+    return false;  // §3: ~10 ms
   lastPollMs_ = now;
 
   deb_.update(readRaw());

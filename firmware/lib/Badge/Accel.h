@@ -13,10 +13,10 @@
 namespace badge {
 
 struct AccelReading {
-  int16_t x_mg  = 0;
-  int16_t y_mg  = 0;
-  int16_t z_mg  = 0;
-  bool    valid = false;
+  int16_t x_mg = 0;
+  int16_t y_mg = 0;
+  int16_t z_mg = 0;
+  bool valid   = false;
 };
 
 class Accel {
@@ -40,8 +40,8 @@ class Accel {
   bool writeReg(uint8_t reg, uint8_t value);
   bool readRegs(uint8_t reg, uint8_t* out, uint8_t count);
 
-  bool     present_ = false;
-  uint32_t errors_  = 0;
+  bool present_    = false;
+  uint32_t errors_ = 0;
 };
 
 }  // namespace badge

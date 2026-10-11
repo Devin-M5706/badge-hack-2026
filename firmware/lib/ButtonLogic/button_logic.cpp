@@ -63,9 +63,9 @@ uint16_t Debouncer::update(uint16_t raw) {
   released_ = 0;
 
   for (uint8_t i = 0; i < BTN_COUNT; ++i) {
-    const uint16_t bit     = static_cast<uint16_t>(1u << i);
-    const bool rawDown     = (raw & bit) != 0;
-    const bool stableDown  = (stable_ & bit) != 0;
+    const uint16_t bit    = static_cast<uint16_t>(1u << i);
+    const bool rawDown    = (raw & bit) != 0;
+    const bool stableDown = (stable_ & bit) != 0;
 
     if (rawDown == stableDown) {
       counts_[i] = 0;  // agrees with accepted state; nothing pending
@@ -75,10 +75,10 @@ uint16_t Debouncer::update(uint16_t raw) {
     if (++counts_[i] >= needed_) {
       counts_[i] = 0;
       if (rawDown) {
-        stable_  |= bit;
+        stable_ |= bit;
         pressed_ |= bit;
       } else {
-        stable_   = static_cast<uint16_t>(stable_ & ~bit);
+        stable_ = static_cast<uint16_t>(stable_ & ~bit);
         released_ |= bit;
       }
     }

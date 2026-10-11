@@ -36,7 +36,7 @@ char* nextToken(char** cursor) {
 
 long tokenToLong(const char* token, long fallback) {
   if (token == nullptr || *token == '\0') return fallback;
-  char* end = nullptr;
+  char* end        = nullptr;
   const long value = strtol(token, &end, 10);
   return (end != nullptr && *end == '\0') ? value : fallback;
 }
@@ -151,7 +151,7 @@ void Console::printState() {
 }
 
 void Console::dispatch(char* line) {
-  char* cursor = line;
+  char* cursor    = line;
   const char* cmd = nextToken(&cursor);
   if (cmd == nullptr) return;
 

@@ -75,7 +75,7 @@ void test_press_edge_fires_once_not_every_update() {
   d.update(1u << BTN_A);
   d.update(1u << BTN_A);
   TEST_ASSERT_TRUE(d.wasPressed(BTN_A));
-  d.update(1u << BTN_A);  // still held
+  d.update(1u << BTN_A);                   // still held
   TEST_ASSERT_FALSE(d.wasPressed(BTN_A));  // but no new edge
   TEST_ASSERT_TRUE(d.isDown(BTN_A));
 }
@@ -93,11 +93,11 @@ void test_release_edge_fires_after_debounce() {
 
 void test_bounce_back_to_held_cancels_pending_release() {
   Debouncer d(3);
-  d.prime(1u << BTN_A);  // established as held
-  d.update(0);           // starts to look released
-  d.update(1u << BTN_A); // bounced back
+  d.prime(1u << BTN_A);   // established as held
+  d.update(0);            // starts to look released
+  d.update(1u << BTN_A);  // bounced back
   d.update(0);
-  d.update(0);           // only 2 consecutive now, needs 3
+  d.update(0);  // only 2 consecutive now, needs 3
   TEST_ASSERT_TRUE(d.isDown(BTN_A));
 }
 

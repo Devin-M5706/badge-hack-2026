@@ -23,9 +23,13 @@ void Leds::setAll(uint8_t r, uint8_t g, uint8_t b) {
   for (uint8_t i = 0; i < LED_COUNT; ++i) set(i, r, g, b);
 }
 
-void Leds::clear() { strip_.clear(); }
+void Leds::clear() {
+  strip_.clear();
+}
 
-void Leds::show() { strip_.show(); }
+void Leds::show() {
+  strip_.show();
+}
 
 void Leds::setBrightnessUnsafe(uint8_t brightness) {
   strip_.setBrightness(brightness);

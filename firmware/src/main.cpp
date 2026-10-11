@@ -25,8 +25,8 @@ namespace {
 
 badge::Display display;
 badge::Buttons buttons;
-badge::Leds    leds;
-badge::Accel   accel;
+badge::Leds leds;
+badge::Accel accel;
 badge::Console console;
 
 // Screen rows, named so the layout is editable without counting.
@@ -53,8 +53,7 @@ void renderPressedButtons() {
     used += static_cast<size_t>(n);
   }
 
-  display.linef(kRowButtons, ST77XX_WHITE, "held: %s",
-                used > 0 ? names : "-");
+  display.linef(kRowButtons, ST77XX_WHITE, "held: %s", used > 0 ? names : "-");
 }
 
 }  // namespace
@@ -129,7 +128,7 @@ void loop() {
   leds.chase(now);
 
   if (now - lastAccelMs >= 200) {
-    lastAccelMs = now;
+    lastAccelMs                 = now;
     const badge::AccelReading r = accel.read();
     if (r.valid) {
       display.linef(kRowAccelValues, ST77XX_WHITE, "x%5d y%5d z%5d", r.x_mg,

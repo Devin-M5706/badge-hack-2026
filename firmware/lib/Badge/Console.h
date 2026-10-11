@@ -38,12 +38,12 @@ class Console {
   void writeChunked(const char* text);
 
   Buttons* buttons_ = nullptr;
-  Leds*    leds_    = nullptr;
-  Accel*   accel_   = nullptr;
+  Leds* leds_       = nullptr;
+  Accel* accel_     = nullptr;
   Display* display_ = nullptr;
 
-  char   buf_[80] = {0};
-  size_t len_     = 0;
+  char buf_[80] = {0};
+  size_t len_   = 0;
 };
 
 }  // namespace badge

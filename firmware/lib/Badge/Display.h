@@ -49,9 +49,9 @@ class Display {
 
   // The panel driver is constructed with its pins up front rather than being
   // reassigned in begin(), so there is exactly one place the wiring is stated.
-  SPIClass        spi_{FSPI};  // SPI2 host on the ESP32-C3
+  SPIClass spi_{FSPI};  // SPI2 host on the ESP32-C3
   Adafruit_ST7789 tft_{&spi_, PIN_LCD_CS, PIN_LCD_DC, PIN_LCD_RST};
-  bool            ready_ = false;
+  bool ready_ = false;
 };
 
 }  // namespace badge

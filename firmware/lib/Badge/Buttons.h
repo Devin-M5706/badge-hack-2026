@@ -44,14 +44,14 @@ class Buttons {
   void inject(uint8_t button, uint32_t ms = 60);
 
  private:
-  uint8_t  readShiftByte();
+  uint8_t readShiftByte();
   uint16_t readRaw();
 
   Debouncer deb_{2};  // 2 samples @ 10 ms = ~20 ms debounce
-  uint32_t  lastPollMs_   = 0;
-  uint8_t   lastRawByte_  = 0xFF;
-  uint16_t  injectedMask_ = 0;
-  uint32_t  injectUntilMs_ = 0;
+  uint32_t lastPollMs_    = 0;
+  uint8_t lastRawByte_    = 0xFF;
+  uint16_t injectedMask_  = 0;
+  uint32_t injectUntilMs_ = 0;
 };
 
 }  // namespace badge

@@ -75,19 +75,19 @@ class Debouncer {
   void prime(uint16_t raw);
 
   uint16_t stable() const { return stable_; }
-  uint16_t pressedEdges() const { return pressed_; }   // went down this update
-  uint16_t releasedEdges() const { return released_; } // came up this update
+  uint16_t pressedEdges() const { return pressed_; }    // went down this update
+  uint16_t releasedEdges() const { return released_; }  // came up this update
 
   bool isDown(uint8_t button) const;
   bool wasPressed(uint8_t button) const;
   bool wasReleased(uint8_t button) const;
 
  private:
-  uint8_t  needed_;
-  uint8_t  counts_[BTN_COUNT] = {0};
-  uint16_t stable_   = 0;
-  uint16_t pressed_  = 0;
-  uint16_t released_ = 0;
+  uint8_t needed_;
+  uint8_t counts_[BTN_COUNT] = {0};
+  uint16_t stable_           = 0;
+  uint16_t pressed_          = 0;
+  uint16_t released_         = 0;
 };
 
 }  // namespace badge
