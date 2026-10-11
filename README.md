@@ -8,6 +8,58 @@ bring-up.
 Built on PlatformIO + Arduino. Every pin number and register value comes from
 the official HAL guide and is cited in the code.
 
+---
+
+## Knock — what got built on it
+
+A badge that tells a deliberate knock from someone else's table slam, decided
+on the device in fixed-point integers.
+
+Any accelerometer can tell you something hit it. The useful part is knowing it
+was you, and that is the part that is hard. Four tests run in order, cheapest
+first, and the third one does the real work.
+
+![Knock detection pipeline](diagrams/knock-detection-pipeline.png)
+
+A knuckle strike has a 0.3 to 2 ms contact time, far above any rate this sensor
+reaches, so the detector never samples the impact. It samples the envelope of
+momentum transfer. A knock dumps energy into damped tissue or a massive desk
+and dies in 10 to 40 ms. A desk is a plate with 20 to 100 Hz bending modes that
+rings for 50 to 200 ms while the badge rides along. Both decay, so decay is not
+the separator. How many times the signal comes back up is.
+
+**Measured, not asserted:**
+
+| | |
+|---|---|
+| 2,707 recordings of real human motion, 14.5 hours | **0 false knocks** |
+| 1,798 real falls, peaks to 19.8 g | **0 false knocks** |
+| Host tests in CI | **39 passing** |
+| Detector cost | 6 to 12% of one core at 400 Hz |
+
+With isolation and agitation both disabled, 120 fall recordings armed 460
+candidates and the ringdown test rejected all 460, at peaks up to 13 times the
+threshold. Amplitude was never what stopped them.
+
+**It also found a contradiction in the official HAL guide.** That document says
+to write `CTRL_REG4 = 0x80` and describes the output as 12-bit at 1 mg per
+count. Bit 3 is HR, and `0x80` leaves it clear, which is 10-bit mode where the
+value moves in steps of 4. Both cannot be true. Confirmed against the Silan
+SC7A20 datasheet Rev 1.3, which publishes no sensitivity figure at all for
+non-HR mode. The correct value is `0xA8`, and the flip test on real silicon
+reads 1064 mg where a failed write would read 250. See
+[docs/SC7A20-REGISTERS.md](docs/SC7A20-REGISTERS.md).
+
+Full write-up, including the open-data replay and the research that calibrates
+these numbers: **[docs/KNOCK.md](docs/KNOCK.md)**.
+
+The firmware in the demo video is [badge-accel/](badge-accel/), a single
+Arduino sketch. `firmware/` is the tested version with the register fix. The
+two differ on purpose and [badge-accel/README.md](badge-accel/README.md) says
+how.
+
+---
+
 ## Quickstart
 
 ```bash
@@ -44,12 +96,18 @@ you whether the hardware is sound:
 ```
 firmware/
   include/badge_pins.h    every GPIO, in one place
-  src/main.cpp            bring-up sketch — replace this with your project
+  src/main.cpp            bring-up sketch + the knock detector wired in
   lib/ButtonLogic/        pure logic, no Arduino, tested on your laptop
-  lib/Badge/              Buttons, Leds, Display, Accel, Console
-  test/                   host-side tests
+  lib/BumpLogic/          the knock detector, same deal: no Arduino, 19 tests
+  lib/Badge/              Buttons, Leds, Display, Accel, Console, BumpDetector
+  test/                   host-side tests, run in CI
+badge-accel/              the Arduino sketch in the demo video (logo, chart, LEDs)
+host/                     USB-serial bridge to a MongoDB Atlas time series
+tools/                    dataset replay, labelled capture, model training
+diagrams/                 diagram sources, rendered SVG and PNG
 docs/HARDWARE.md          pin map, flashing, and the gotchas worth reading first
-docs/DEMO.md              demo script — fill this in early
+docs/KNOCK.md             the knock detector write-up
+docs/SC7A20-REGISTERS.md  register-by-register truth, labelled by evidence
 scripts/                  setup and flash wrappers
 ```
 

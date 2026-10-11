@@ -1,0 +1,15 @@
+graph TD
+  A["SC7A20 accelerometer<br/>400 Hz, ±8 g, 4 mg/count"] -->|"6-byte I²C burst, polled every 2 ms"| B["gravity removal<br/>EMA high-pass, τ 320 ms"]
+  B --> C{"amplitude<br/>≥ 1500 mg"}
+  C -->|"below"| X["discard"]
+  C -->|"above"| D{"isolation<br/>was it still before?"}
+  D -->|"already moving"| X
+  D --> E{"ringdown<br/>≤ 8 hot samples of 24"}
+  E -->|"keeps ringing → desk slam"| X
+  E -->|"one lobe → knock"| F["bump event<br/>peak, axis, flags<br/>250 ms refractory"]
+  F --> G["WS2812 flash + on-screen chart<br/>fires on the badge, no host needed"]
+  F -->|"one NDJSON line over USB"| H["host bridge"]
+  H --> I[("bump_events<br/>time series")]
+  H --> J[("badges<br/>rollup doc")]
+  I -->|"$densify + $setWindowFields"| K["live page"]
+  J -->|"change stream"| K
